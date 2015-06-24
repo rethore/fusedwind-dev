@@ -1,3 +1,4 @@
+from numpy.core.umath import sin, pi
 import numpy as np
 from fusedwind.core.openmdao_interface import fused_func, Inputs, Outputs, WindSpeed, WindDirection, Power
 from openmdao.components.execcomp import ExecComp
@@ -37,7 +38,7 @@ class TestFused_func(unittest.TestCase):
                 p2 = Power,
                 p3 = Power))
         def my_silly_func(u, d):
-            return [i * u**3.0 * np.sin(d * np.pi/180.) for i in range(3)]
+            return [i * u**3.0 * sin(d * np.pi/180.) for i in range(3)]
 
         a = my_silly_func(3.0, 0.0)
         for i in range(3):
@@ -85,6 +86,6 @@ class TestOpenMDAOInterface(unittest.TestCase):
         pb.root.add('eq', ExecComp('y = p*2.0'), promotes=['*'])
         pb.setup()
         pb.run()
-        result = 5.0**3.0 * np.sin(90.0 * np.pi/180.0) * 2.0
+        result = 5.0**3.0 * sin(90.0 * pi / 180.0)  * 2.0
         self.assertAlmostEqual(pb.root.unknowns['y'], result)
 
