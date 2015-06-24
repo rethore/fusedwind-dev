@@ -1,6 +1,7 @@
 from numpy.core.umath import sin, pi
 import numpy as np
-from fusedwind.core.openmdao_interface import fused_func, Inputs, Outputs, WindSpeed, WindDirection, Power
+from fusedwind.core.openmdao_interface import fused_func, Inputs, Outputs
+from fusedwind.variables import wind_speed, wind_direction, power
 from openmdao.components.execcomp import ExecComp
 from openmdao.components.paramcomp import ParamComp
 from openmdao.core.group import Group
@@ -17,12 +18,12 @@ class TestFused_func(unittest.TestCase):
 
         @fused_func(
             Inputs(
-                ws = WindSpeed(4.0),
-                wd = WindDirection(270.0)),
+                ws = wind_speed(4.0),
+                wd = wind_direction(270.0)),
             Outputs(
-                p = Power))
+                p = power))
         def my_silly_func(u, d):
-            return u**3.0 * np.sin(d * np.pi/180.)
+            return u**3.0 * sin(d * pi/180.)
 
         a = my_silly_func(3.0, 0.0)
         self.assertAlmostEqual(a(5.0, 90.0), 5.0**3.0)
@@ -31,30 +32,47 @@ class TestFused_func(unittest.TestCase):
 
         @fused_func(
             Inputs(
-                ws = WindSpeed(4.0),
-                wd = WindDirection(270.0)),
+                ws = wind_speed(4.0),
+                wd = wind_direction(270.0)),
             Outputs(
-                p1 = Power,
-                p2 = Power,
-                p3 = Power))
+                p1 = power,
+                p2 = power,
+                p3 = power))
         def my_silly_func(u, d):
-            return [i * u**3.0 * sin(d * np.pi/180.) for i in range(3)]
+            return [i * u**3.0 * sin(d * pi/180.) for i in range(3)]
 
         a = my_silly_func(3.0, 0.0)
         for i in range(3):
             self.assertAlmostEqual(a(5.0, 90.0)[i], i*5.0**3.0)
+
+    def test_call_error(self):
+        @fused_func(
+            Inputs(
+                ws = wind_speed(4.0),
+                wd = wind_direction(270.0)),
+            Outputs(
+                p = power))
+        def my_silly_func(u, d):
+            return u**3.0 * sin(d * pi/180.)
+
+        a = my_silly_func(3.0, 0.0)
+        with self.assertRaises(NotImplementedError,
+                               msg='Only use args or kwargs independently, not both at the same time.'):
+            a(3.0, wd=90.0)
+
+
 
 class TestOpenMDAOInterface(unittest.TestCase):
 
     def setUp(self):
         @fused_func(
             Inputs(
-                ws = WindSpeed(4.0),
-                wd = WindDirection(270.0)),
+                ws = wind_speed(4.0),
+                wd = wind_direction(270.0)),
             Outputs(
-                p = Power))
+                p = power))
         def my_silly_func(u, d):
-            return u**3.0 * np.sin(d * np.pi/180.)
+            return u**3.0 * sin(d * pi/180.0)
 
         self.func = my_silly_func()
 

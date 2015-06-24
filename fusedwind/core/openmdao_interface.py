@@ -7,22 +7,6 @@ from openmdao.core.component import Component
 Inputs = OrderedDict
 Outputs = OrderedDict
 
-class FUSEDVar(dict):
-    def __init__(self, default, **kwargs):
-        super().__init__(kwargs)
-        self.__setitem__('value', default)
-        self.__setitem__('default', default)
-
-    def __call__(self, value, **kwargs):
-        self.__setitem__('value', value)
-        for k, v in kwargs.items():
-            self.__setitem__(k, v)
-        return self
-
-WindSpeed = FUSEDVar(10.0, units='m/s')
-WindDirection = FUSEDVar(0.0, units='deg')
-Power = FUSEDVar(0.0, units='W')
-
 def fused_func(inputs=Inputs(), outputs=Outputs()):
     def _outer_wrapper(wrapped_function):
         ## Create the component that wrapp the function
@@ -30,10 +14,10 @@ def fused_func(inputs=Inputs(), outputs=Outputs()):
             def __init__(self):
                 super().__init__()
                 for k, v in inputs.items():
-                    self.add_param(k, v['value'])
+                    self.add_param(k, v['val'])
 
                 for k, v in outputs.items():
-                    self.add_output(k, v['value'])
+                    self.add_output(k, v['val'])
 
             def solve_nonlinear(self, params, unknowns, resids):
                 results = wrapped_function(*[params[k] for k in inputs.keys()])
@@ -44,10 +28,26 @@ def fused_func(inputs=Inputs(), outputs=Outputs()):
                         unknowns[k] = v
 
             def __call__(self, *args, **kwargs):
+                """Call the component in a pythonic way:
+                [output_1, ..., output_n] = func(input_1, ..., input_n)
+                If only part of the inputs are specified, the component will use the default values or the previously
+                defined values.
+
+                :param args:    list
+                                inputs defined by the wrapper. The order corresponds to the order indicated in the
+                                wrapper decorator
+                :param kwargs:  dict
+                                inputs defined by the wrapper.
+                :return:
+                """
                 params = self._params_dict
                 unknowns = self._unknowns_dict
                 resids = OrderedDict()
                 input_keys = list(params.keys())
+                # TODO: verify that the args are not replaced by the kwargs
+                if len(args)>0 and len(kwargs)>0:
+                    raise NotImplementedError('Only use args or kwargs independently, not both at the same time.')
+
                 for i, a in enumerate(args):
                     k = input_keys[i]
                     params[k] = a
