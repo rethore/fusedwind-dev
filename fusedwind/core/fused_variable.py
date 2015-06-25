@@ -7,7 +7,7 @@ class FUSEDVar(dict):
     __setattr__ = dict.__setitem__
 
     def __init__(self, default=None, **kwargs):
-        super().__init__(kwargs)
+        super(FUSEDVar, self).__init__(kwargs)
         if default is None:
             if 'default' in kwargs:
                 default = kwargs['default']
@@ -16,10 +16,13 @@ class FUSEDVar(dict):
             elif kwargs['type']=='float':
                 default = 0.0
             elif kwargs['type']=='array':
-                if isinstance(kwargs['size'], str):
-                    default = array([])
+                if 'size' in kwargs:
+                    if isinstance(kwargs['size'], str):
+                        default = array([])
+                    else:
+                        default = zeros(kwargs['size'])
                 else:
-                    default = zeros(kwargs['size'])
+                    default = array([])
             else:
                 raise Exception('Default value should be given as input')
 
