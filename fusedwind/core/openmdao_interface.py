@@ -1,3 +1,6 @@
+from fusedwind.variables import fall
+import yaml
+
 __author__ = 'pire'
 
 from collections import OrderedDict
@@ -109,3 +112,18 @@ def fused_func(inputs=Inputs(), outputs=Outputs()):
         return _initialize
     return _outer_wrapper
 
+def fused_yaml(io, func):
+    iod = yaml.load(io)
+    inputs_str = iod[func.__name__]['inputs']
+    outputs_str= iod[func.__name__]['outputs']
+    inputs = []
+    for i in inputs_str:
+        d, o = i.split('.')
+        inputs.append(fall[d][o])
+
+    outputs = []
+    for i in outputs_str:
+        d, o = i.split('.')
+        outputs.append(fall[d][o])
+
+    return fused_func(inputs, outputs)(func)

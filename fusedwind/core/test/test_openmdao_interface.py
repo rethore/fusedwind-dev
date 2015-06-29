@@ -1,11 +1,12 @@
 from numpy.core.umath import sin, pi
 import numpy as np
-from fusedwind.core.openmdao_interface import fused_func, Inputs, Outputs
+from fusedwind.core.openmdao_interface import fused_func, Inputs, Outputs, fused_yaml
 from fusedwind.variables import wind_speed, wind_direction, power
 from openmdao.components.execcomp import ExecComp
 from openmdao.components.paramcomp import ParamComp
 from openmdao.core.group import Group
 from openmdao.core.problem import Problem
+import yaml
 
 __author__ = 'pire'
 
@@ -95,6 +96,49 @@ class TestOpenMDAOInterface(unittest.TestCase):
         result = 5.0**3.0 * sin(90.0 * pi / 180.0)  * 2.0
         self.assertAlmostEqual(pb.root.unknowns['y'], result)
 
+
+
+class Testfused_yaml(TestOpenMDAOInterface):
+
+    def setUp(self):
+
+        interface = """
+        my_silly_func:
+            inputs:
+                - flow.wind_speed
+                - flow.wind_direction
+            outputs:
+                - turbine.power
+        """
+
+        def my_silly_func(ws, wd):
+            return ws**3.0 * sin(wd * pi/180.0)
+
+
+        func = fused_yaml(interface, my_silly_func)()
+        self.func = fused_yaml(interface, my_silly_func)()
+
+
+class Testfused_yaml(TestOpenMDAOInterface):
+
+    def setUp(self):
+
+        interface = """
+        my_silly_func:
+            inputs:
+                - flow.wind_speed
+                - flow.wind_direction
+            outputs:
+                - turbine.power
+        """
+
+        def my_silly_func(ws, wd):
+            return ws**3.0 * sin(wd * pi/180.0)
+
+
+        func = fused_yaml(interface, my_silly_func)()
+        self.func = fused_yaml(interface, my_silly_func)()
+
 class TestSpecialOpenMDAO(unittest.TestCase):
     def test_same_types(self):
         @fused_func(
@@ -118,4 +162,3 @@ class TestSpecialOpenMDAO(unittest.TestCase):
         pb.run()
         result = (((ws1 + ws2)/2.0)**3.0 * sin(wd * pi/180.0)) * 2.0
         self.assertAlmostEqual(pb.root.unknowns['y'], result)
-
