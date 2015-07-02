@@ -34,3 +34,35 @@ class FUSEDVar(dict):
         for k, v in kwargs.items():
             self.__setitem__(k, v)
         return self
+
+
+Float = lambda *args, **kwargs: FUSEDVar(*args, type='float', **kwargs)
+Array = lambda *args, **kwargs: FUSEDVar(*args, type='array', **kwargs)
+Str = lambda *args, **kwargs: FUSEDVar(*args, type='str', **kwargs)
+
+class VarTree(object):
+    def __init__(self, vartree, **kwargs):
+        self.vartree = vartree()
+        self.kwargs = kwargs
+
+    def items(self):
+        out = dict(self.vartree.items())
+        out.update(self.kwargs)
+        return out.items()
+
+class VariableTree(object):
+    def items(self):
+        return [('type', 'vartree'),
+                ('val', dict(self._items()))]
+
+    def _items(self):
+        for k in dir(self):
+            if not k.startswith('_'):
+                obj = getattr(self, k)
+                if isinstance(obj, FUSEDVar):
+                    yield (k, obj)
+                elif isinstance(obj, VarTree):
+                    yield (k, dict(obj.items()))
+
+
+

@@ -1,11 +1,13 @@
 from numpy.core.umath import sin, pi
+from fusedwind.core.fused_variable import Float, VariableTree, Str, VarTree
 import numpy as np
-from fusedwind.core.openmdao_interface import fused_func, Inputs, Outputs, fused_yaml
+from fusedwind.core.openmdao_interface import fused_func, Inputs, Outputs, fused_yaml, FUSEDComponent
 from fusedwind.variables import wind_speed, wind_direction, power
 from openmdao.components.execcomp import ExecComp
 from openmdao.components.paramcomp import ParamComp
 from openmdao.core.group import Group
 from openmdao.core.problem import Problem
+from play.fusedw import FUSEDVar
 import yaml
 
 __author__ = 'pire'
@@ -162,3 +164,55 @@ class TestSpecialOpenMDAO(unittest.TestCase):
         pb.run()
         result = (((ws1 + ws2)/2.0)**3.0 * sin(wd * pi/180.0)) * 2.0
         self.assertAlmostEqual(pb.root.unknowns['y'], result)
+
+
+class TestBackwardCompatibility(TestOpenMDAOInterface):
+    def setUp(self):
+        class MyClass(FUSEDComponent):
+            wind_speed = Float(4.0, iotype='in', units='m/s', desc='The wind speed')
+            wind_direction = Float(4.0, iotype='in', units='deg', desc='The wind direction')
+
+            power = Float(1., iotype='out', units='power', desc='The power')
+
+            def execute(self):
+                self.power = (self.wind_speed)**3.0 * sin(self.wind_direction * pi/180.0)
+
+        self.func = MyClass()
+
+class TestVarTreeBackwardCompatibility(unittest.TestCase):
+    def test_basic(self):
+
+        class Lapin(VariableTree):
+            kat = Float(3.)
+
+        class Kat(VariableTree):
+            kat = Str('cat')
+            lapin = VarTree(Lapin)
+
+        class B(FUSEDComponent):
+
+            hello = Float(2., iotype='in')
+            kat = VarTree(Kat, iotype='in')
+
+            what = Float(2., iotype='out')
+            lapin = VarTree(Lapin, iotype='out')
+
+            def execute(self):
+                self.what = self.hello * 2.
+                self.kat.kat = 4.
+                self.lapin.kat = 6.
+                self.hello = 5.
+
+        c = B()
+        c.hello = 3.0
+        c.kat.kat = 'dog'
+        c.kat.lapin.kat = 5.0
+        self.assertAlmostEqual(c._fused_params['hello'], 3.0)
+
+        c.execute()
+
+        self.assertTrue('what' in c._unknowns_dict)
+        self.assertAlmostEqual(c._fused_params['kat:lapin:kat'], 5.0)
+        self.assertAlmostEqual(c._fused_params['hello'], 5.0)
+        self.assertAlmostEqual(c._fused_unknowns['what'], 3.  * 2.)
+        self.assertAlmostEqual(c._fused_unknowns['lapin:kat'], 6.0)
