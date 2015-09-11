@@ -73,11 +73,7 @@ class FUSEDTurbineCostsModel(Group):
 
 def example():
 
-    with_seam = False
-    if with_seam:
-        config = {'blade': 'seam', 'tower': 'seam'}
-    else:
-        config = {'blade': 'csm', 'tower': 'csm'}
+    config = {'blade': 'seam', 'tower': 'seam'}
 
     turbine = FUSEDTurbineCostsModel(config)
     prob = Problem(turbine)
@@ -106,7 +102,7 @@ def example():
     prob['offshore'] = True
     prob['bearing_number'] = 2
 
-    if not with_seam:
+    if config['blade'] == 'csm':
         prob['turbine_class'] = 1
         prob['blade_has_carbon'] = False
     else:
@@ -117,9 +113,7 @@ def example():
         prob['max_wsp'] = 25.
         prob['project_lifetime'] = 20.
 
-        prob['tower_bottom_diameter'] = 4.
-        prob['tower_top_diameter'] = 2.
-
+    if config['blade'] == 'seam' or config['tower'] == 'seam':
         # loads inputs
         prob['Iref'] = 0.16
         prob['F'] = 0.777
@@ -140,6 +134,7 @@ def example():
         prob['wohler_exponent_blade_flap'] = 10.0
         prob['PMtarget'] = 1.0
 
+    if config['blade'] == 'seam':
         prob['MaxChordrR'] = 0.2
         prob['TIF_FLext'] = 1.
         prob['TIF_EDext'] = 1.
@@ -152,6 +147,9 @@ def example():
         prob['AddWeightFactorBlade'] = 1.2
         prob['blade_density'] = 2100.
 
+    if config['tower'] == 'seam':
+        prob['tower_bottom_diameter'] = 6.
+        prob['tower_top_diameter'] = 3.78
         prob['wohler_exponent_tower'] = 4.
         prob['stress_limit_extreme_tower'] = 235.0
         prob['stress_limit_fatigue_tower'] = 14.885
