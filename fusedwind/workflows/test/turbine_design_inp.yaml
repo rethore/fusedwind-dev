@@ -1,0 +1,45 @@
+turbine_design:
+    blade:
+        model: SEAMBladeStructure
+        deps:
+            rotor_loads:
+                model: SEAMLoads
+                args:
+                    n_wsp: 26
+    tower:
+        model: SEAMTower
+        deps:
+            rotor_loads:
+                model: SEAMLoads
+                args:
+                    n_wsp: 26
+        args:
+            n_sections: 21
+    hub:
+        model: HubMass
+    pitch:
+        model: PitchSystemMass
+    spinner:
+        model: SpinnerMass
+    lss:
+        model: LowSpeedShaftMass
+    bearing:
+        model: BearingMass
+    gearbox:
+        model: GearboxMass
+    hss:
+        model: HighSpeedSideMass
+    generator:
+        model: GeneratorMass
+    bedplate:
+        model: BedplateMass
+    yaw:
+        model: YawSystemMass
+    hvac:
+        model: HydraulicCoolingMass
+    cover:
+         model: NacelleCoverMass
+    other:
+        model: OtherMainframeMass
+    transformer:
+        model: TransformerMass
