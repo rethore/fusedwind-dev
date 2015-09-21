@@ -3,9 +3,9 @@ import numpy as np
 
 from openmdao.core import Problem, Group
 
-from fusedwind.workflows.turbine_design import FUSEDModelBuilder
+from fusedwind.workflows.model_builder import FUSEDModelBuilder
 
-main_config = yaml.load(open('turbine_costs.json','r'))
+main_config = yaml.load(open('turbine_design_inp.yaml','r'))
 
 prob = Problem(root=Group())
 prob.root.add('turbine_design', FUSEDModelBuilder(main_config['turbine_design']), promotes=['*'])

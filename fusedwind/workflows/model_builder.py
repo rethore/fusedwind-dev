@@ -7,7 +7,7 @@ import fusedwind.models as models
 class FUSEDModelBuilder(Group):
 
     def __init__(self, config):
-        super(FUSEDSimpleTurbineDesign, self).__init__()
+        super(FUSEDModelBuilder, self).__init__()
 
         for name, dic in config.iteritems():
             klass = getattr(models, dic['model'])
