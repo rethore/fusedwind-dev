@@ -1,0 +1,27 @@
+wind_speed:
+  type: float
+  low: 0.0
+  high: 1000.0
+  units: m/s
+  desc: Streamwise wind speed scalar at a given time and position
+
+wind_direction:
+  type: float
+  low: 0.0
+  high: 360.0
+  units: deg
+  desc: Angular wind direction at a given time and position. 0 indicating north and 90 indicating west.
+
+surface_roughness:
+  type: float
+  low: 0.0
+  high: 1000.0
+  units: m
+  desc: The local surface roughness influencing the wind shear. Also called z_0.
+
+turbulence_intensity:
+  type: float
+  low: 0.0
+  high: 1.0
+  desc: The turbulence intensity
+

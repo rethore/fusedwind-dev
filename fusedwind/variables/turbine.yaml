@@ -1,0 +1,69 @@
+#Turbine state characteristics
+power:
+  type: float
+  low: 0.0
+  high: 1000000.0
+  units: W
+  desc: wind turbine power output at a given time
+
+pitch:
+  type: float
+  low: 0.0
+  high: 360.0
+  units: deg
+  desc: blade pitch angle at a given time
+
+rpm:
+  type: float
+  low: 0.0
+  high: 1000000.0
+  desc: Wind turbine rotor rotation per minute.
+
+thrust_coefficient:
+  type: float
+  desc: the thrust coefficient of the wind turbine.
+
+
+# Turbine geometric characteristics
+hub_height:
+  type: float
+  low: 0.0
+  high: 500.0
+  units: m
+  desc: wind turbine hub height over ground level
+
+rotor_diameter:
+  type: float
+  low: 0.0
+  high: 300.0
+  units: m
+  desc: wind turbine rotor diameter from center to the tip of the blades
+
+nacelle_direction:
+  type: float
+  low: 0.0
+  high: 360.0
+  units: deg
+  desc: angular direction of the wind turbine nacelle at a given time. 0 indicating north and 90 indicating west.
+
+# Turbine dynamical characteristics
+c_t_curve:
+  type: array
+  size: n, 2
+  desc: The thrust coefficient curve of a wind turbine [wind_speed, thrust_coefficient]. n is number of wind speeds.
+
+power_curve:
+  type: array
+  size: n, 2
+  desc: The power curve of a wind turbine [wind_speed, power]. n is number of wind speeds.
+
+pitch_curve:
+  type: array
+  size: n, 2
+  desc: The pitch curve of a wind turbine [pitch, power]. n is number of wind speeds.
+
+rpm_curve:
+  type: array
+  size: n, 2
+  desc: The rotation per minute curve of a wind turbine [pitch, power]. n is number of wind speeds.
+
