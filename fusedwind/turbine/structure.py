@@ -107,7 +107,7 @@ def read_bladestructure(filebase):
             r['angles'] = np.zeros((cldata.shape[0], nl))
         st3d['webs'].append(r)
 
-        return st3d
+    return st3d
 
 def write_bladestructure(st3d, filebase):
     """
@@ -205,7 +205,9 @@ def interpolate_bladestructure(st3d, s_new):
     st3dn['matprops'] = st3d['matprops']
     st3dn['failmat'] = st3d['failmat']
     st3dn['failcrit'] = st3d['failcrit']
+    st3dn['web_def'] = st3d['web_def']
     st3dn['regions'] = []
+    st3dn['webs'] = []
 
     DPs = np.zeros((s_new.shape[0], st3d['DPs'].shape[1]))
     for i in range(st3d['DPs'].shape[1]):
@@ -228,6 +230,21 @@ def interpolate_bladestructure(st3d, s_new):
         rnew['thicknesses'] = tnew.copy()
         rnew['angles'] = anew.copy()
         st3dn['regions'].append(rnew)
+    for r in st3d['webs']:
+        rnew = {}
+        rnew['layers'] = r['layers']
+        Ts = r['thicknesses']
+        As = r['angles']
+        tnew = np.zeros((s_new.shape[0], Ts.shape[1]))
+        anew = np.zeros((s_new.shape[0], As.shape[1]))
+        for i in range(Ts.shape[1]):
+            tck = pchip(sorg, Ts[:, i])
+            tnew[:, i] = tck(s_new)
+            tck = pchip(sorg, As[:, i])
+            anew[:, i] = tck(s_new)
+        rnew['thicknesses'] = tnew.copy()
+        rnew['angles'] = anew.copy()
+        st3dn['webs'].append(rnew)
 
     return st3dn
 
@@ -290,8 +307,6 @@ class CSPropsBase(Component):
                 varname = 'r%i%s' % (ireg, lname)
                 self.add_param(varname + 'T', 0.)
                 self.add_param(varname + 'A', 0.)
-
-        self.add_param('cs_invar', 0.)
 
         # add outputs
         self.add_output('cs_props', np.zeros(19))
