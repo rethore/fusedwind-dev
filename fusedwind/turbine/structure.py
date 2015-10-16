@@ -29,7 +29,7 @@ def read_bladestructure(filebase):
     # read mat file
     fid = open(filebase + '.mat', 'r')
     materials = fid.readline().split()[1:]
-    st3d['materials'] = materials
+    st3d['materials'] = {name:i for i, name in enumerate(materials)}
     data = np.loadtxt(fid)
     st3d['matprops'] = data
 
@@ -124,7 +124,7 @@ def write_bladestructure(st3d, filebase):
 
     # write material properties
     fid = open(filebase + '.mat', 'w')
-    fid.write('# %s\n' % (' '.join(st3d['materials'])))
+    fid.write('# %s\n' % (' '.join(st3d['materials'].keys())))
     fid.write('# E1 E2 E3 nu12 nu13 nu23 G12 G13 G23 rho\n')
     fmt = ' '.join(10*['%.20e'])
     np.savetxt(fid, st3d['matprops'], fmt=fmt)
@@ -133,7 +133,7 @@ def write_bladestructure(st3d, filebase):
     fid = open(filebase + '.failmat', 'w')
     fid.write('# %s\n' % (' '.join(st3d['materials'])))
     fid.write('# failcrit s11_t s22_t s33_t s11_c s22_c s33_c'
-              't12 t13 t23 e11_c e22_c e33_c e11_t e22_t e33_t g12 g13 g23'
+              't12 t13 t23 e11_t e22_t e33_t e11_c e22_c e33_c g12 g13 g23'
               'gM0 C1a C2a C3a C4a\n')
     data = np.zeros((st3d['failmat'].shape[0], st3d['failmat'].shape[1]+1))
     data[:, 0] = [failcrit[mat] for mat in st3d['failcrit']]
