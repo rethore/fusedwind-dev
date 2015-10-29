@@ -1,12 +1,14 @@
 
 import time
+import re
 import numpy as np
 from scipy.interpolate import pchip
 
-from openmdao.core import Component, Group, ParallelGroup
+from openmdao.api import Component, Group, ParallelGroup
 from openmdao.core.problem import Problem
-from openmdao.components import IndepVarComp
+from openmdao.api import IndepVarComp
 
+from fusedwind.turbine.geometry import FFDSpline
 
 def read_bladestructure(filebase):
     """
@@ -249,222 +251,25 @@ def interpolate_bladestructure(st3d, s_new):
     return st3dn
 
 
-# this shouldn't be here, but probably in fusedwind.models.structure...?
-class CSPropsBase(Component):
+class SplinedBladeStructure(Group):
     """
-    Template for components that can compute
-    beam structural properties using a cross-sectional
-    code such as PreComp, BECAS or VABS.
-
-    parameters
-    ----------
-    config: dict
-        dictionary of model specific inputs
-    coords: array
-        cross-sectional shape. size ((ni_chord, 3))
-    matprops: array
-        material stiffness properties. Size ((10, nmat)).
-    failmat: array
-        material strength properties. Size ((18, nmat)).
-    DPs: array
-        vector of DPs. Size: (nDP)
-    coords: array
-        blade section coordinates. Size: ((ni_chord, 3))
-    r<xx><lname>T: float
-        layer thicknesses, e.g. r01triaxT.
-    r<xx><lname>A: float
-        layer angles, e.g. r01triaxA.
-    cs_invar: float
-        test variable added to test input promotions
-
-    outputs
-    -------
-    cs_props: array
-        vector of cross section properties. Size (19).
-    cs_outvar: float
-        test variable added to test output promotions
+    class that adds structural geometry variables to the analysis
+    either as either as splines with user defined control points
+    or arrays according to the initial structural data
     """
 
-    def __init__(self, config, st3d, ni_chord):
-        super(CSPropsBase, self).__init__()
-
-        nr = len(st3d['regions'])
-
-        # add materials properties array ((10, nmat))
-        self.add_param('matprops', st3d['matprops'])
-
-        # add materials strength properties array ((18, nmat))
-        self.add_param('failmat', st3d['failmat'])
-
-        # add DPs array
-        self.add_param('DPs', np.zeros(nr + 1))
-
-        # add coords coords
-        self.add_param('coords', np.zeros((ni_chord, 3)))
-
-        for ireg, reg in enumerate(st3d['regions']):
-            for i, lname in enumerate(reg['layers']):
-                varname = 'r%i%s' % (ireg, lname)
-                self.add_param(varname + 'T', 0.)
-                self.add_param(varname + 'A', 0.)
-
-        # add outputs
-        self.add_output('cs_props', np.zeros(19))
-
-        # test vars
-        self.add_param('cs_invar', 0.)
-        self.add_output('cs_outvar', 0.)
-
-    def solve_nonlinear(self, params, unknowns, resids):
-
-        time.sleep(1.)
-        if self.comm:
-            print 'rank %i computing props for section %3.3f %i %i' % \
-                                    (self.comm.rank, params['coords'][0, 2],
-                                     params['coords'].shape[0], params['coords'].shape[1])
-            print 'rank %i DPs'%self.comm.rank, params['DPs']
-        else:
-            print 'computing props for section', params['coords'][0, 2]
-        unknowns['cs_props'][0] = params['coords'][0, 2]
-
-        # test vars
-        unknowns['cs_outvar'] = params['cs_invar'] * 2.
-
-
-class Slice(Component):
-    """
-    simple component for slicing arrays into vectors
-    for passing to sub-comps computing the csprops
-
-    parameters
-    ----------
-    DPs: array
-        2D array of DPs. Size: ((nsec, nDP))
-    surface: array
-        blade surface. Size: ((ni_chord, nsec, 3))
-
-    outputs
-    -------
-    sec<xxx>DPs: array
-        Vector of DPs along chord for each section. Size (nDP)
-    sec<xxx>coords: array
-        Array of cross section coords shapes. Size ((ni_chord, 3))
-    """
-
-    def __init__(self, DPs, surface):
-        super(Slice, self).__init__()
-
-        self.nsec = surface.shape[1]
-
-        self.add_param('DPs', DPs)
-        self.add_param('surface', surface)
-        for i in range(self.nsec):
-            self.add_output('sec%03dDPs' % i, DPs[i, :])
-            self.add_output('sec%03dcoords' % i, surface[:, i, :])
-
-    def solve_nonlinear(self, params, unknowns, resids):
-
-        for i in range(self.nsec):
-            unknowns['sec%03dDPs' % i] = params['DPs'][i, :]
-            unknowns['sec%03dcoords' % i] = params['surface'][:, i, :]
-
-
-class Postprocess(Component):
-    """
-    component for gathering cross section props
-    into array as function of span
-
-    parameters
-    ----------
-    cs_props<xxx>: array
-        array of cross section props. Size (19).
-    blade_s: array
-        dimensionalised running length of blade
-    hub_radius: float
-        dimensionalised hub radius
-
-    outputs
-    -------
-    beam_structure: array
-        array of beam structure properties. Size ((nsec, 19)).
-    """
-
-    def __init__(self, nsec):
-        super(Postprocess, self).__init__()
-
-        self.nsec = nsec
-
-        for i in range(nsec):
-            self.add_param('cs_props%03d' % i, np.zeros(19))
-        self.add_param('blade_s', np.zeros(nsec))
-        self.add_param('hub_radius', 0.)
-
-
-        self.add_output('beam_structure', np.zeros((nsec, 19)))
-        self.add_output('blade_mass', 0.)
-        self.add_output('blade_mass_moment', 0.)
-
-    def solve_nonlinear(self, params, unknowns, resids):
-
-        for i in range(self.nsec):
-            cname = 'cs_props%03d' % i
-            cs = params[cname]
-            unknowns['beam_structure'][i, :] = cs
-
-
-class CSBeamStructure(Group):
-    """
-    Group for computing beam structure properties
-    using a cross-section structure code
-
-    parameters
-    ----------
-    matprops: array
-        material stiffness properties. Size (10, nmat).
-    failmat: array
-        material strength properties. Size (18, nmat).
-    DPs: array
-        2D array of DPs. Size: ((nsec, nDP))
-    surface: array
-        blade surface. Size: ((ni_chord, nsec, 3))
-    r<xx><lname>T: array
-        region layer thicknesses, e.g. r01triaxT. Size (nsec)
-    r<xx><lname>A: array
-        region layer angles, e.g. r01triaxA. Size (nsec)
-    w<xx><lname>T: array
-        web layer thicknesses, e.g. r01triaxT. Size (nsec)
-    w<xx><lname>A: array
-        web layer angles, e.g. r01triaxA. Size (nsec)
-
-    outputs
-    -------
-    beam_structure: array
-        array of beam structure properties. Size ((nsec, 19)).
-    blade_mass: float
-        blade mass integrated from beam_structure dm
-    """
-
-    def __init__(self, config, st3d, surface):
+    def __init__(self, st3d):
         """
-        initializes parameters and adds a csprops component
-        for each section
-
         parameters
         ----------
-        config: dict
-            dictionary of inputs for the cs_code class
         st3d: dict
-            dictionary of blade structure properties
-        surface: array
-            blade surface. Size: ((ni_chord, nsec, 3))
+            dictionary with blade structural definition
         """
-        super(CSBeamStructure, self).__init__()
+        super(SplinedBladeStructure, self).__init__()
 
-
-
-        self.st3d = st3d
-        nr = len(st3d['regions'])
-        nsec = st3d['s'].shape[0]
+        self._vars = []
+        self._allvars = []
+        self.st3dinit = st3d
 
         # add materials properties array ((10, nmat))
         self.add('matprops_c', IndepVarComp('matprops', st3d['matprops']), promotes=['*'])
@@ -472,48 +277,106 @@ class CSBeamStructure(Group):
         # add materials strength properties array ((18, nmat))
         self.add('failmat_c', IndepVarComp('failmat', st3d['failmat']), promotes=['*'])
 
-        # add DPs array with s, DP0, DP1, ... DP<nr>
-        self.add('DPs_c', IndepVarComp('DPs', st3d['DPs']), promotes=['*'])
+    def add_spline(self, name, Cx, spline_type='bezier', symm=True):
+        """
+        adds a 1D FFDSpline for the given variable
+        with user defined spline type and control point locations.
 
-        # add array containing blade section coords
-        self.add('surface_c', IndepVarComp('surface', surface), promotes=['*'])
+        parameters
+        ----------
+        name: str
+            name of the variable, which should be of the form
+            r04uniaxT or r04uniaxA for region 4 uniax thickness
+            and angle, respectively.
+        Cx: array
+            spanwise distribution of control points
+        spline_type: str
+            spline type used in FFD, options:
+            | bezier
+            | pchip
+        """
 
-        # add comp to slice the 2D arrays DPs and surface
-        self.add('slice', Slice(st3d['DPs'], surface), promotes=['*'])
+        st3d = self.st3dinit
 
-        self._varnames = []
+        # decode the name
+        if 'DP' in name:
+            # try:
+            iDP = int(re.match(r"([a-z]+)([0-9]+)", name, re.I).groups()[-1])
+            # except:
+            #     print('Variable name %s not understood' % name)
+            #     return
+
+            var = st3d['DPs'][:, iDP]
+            c = self.add(name + '_c', FFDSpline(name, st3d['s'],
+                                                      var,
+                                                      Cx),
+                                                      promotes=['*'])
+            c.spline_options['spline_type'] = spline_type
+            self._vars.append(name)
+
+        elif name.startswith('r') or name.startswith('w'):
+
+            try:
+                ireg = int(name[1:3])
+                try:
+                    split = re.match(r"([a-z]+)([a-z]+)", name[3:], re.I).groups()
+                except:
+                    split = re.match(r"([a-z]+)([0-9]+)([a-z]+)", name[3:], re.I).groups()
+                    l_index = split[1]
+                layername = split[0]
+                stype = split[-1]
+            except:
+                print('Variable name %s not understood' % name)
+                return
+
+            if name.startswith('r'):
+                r = st3d['regions'][ireg]
+                rname = 'r%02d' % ireg
+            elif name.startswith('w'):
+                r = st3d['webs'][ireg]
+                rname = 'w%02d' % ireg
+            if symm:
+                lnames = [layername, layername + '01']
+            else:
+                lnames = [layername]
+            for lname in lnames:
+                varname = '%s%s%s' % (rname, lname, stype)
+                ilayer = r['layers'].index(lname)
+                if stype == 'T':
+                    var = r['thicknesses'][:, ilayer]
+                elif stype == 'A':
+                    var = r['angles'][:, ilayer]
+
+                c = self.add(varname + '_c', FFDSpline(varname, st3d['s'],
+                                                          var,
+                                                          Cx),
+                                                          promotes=['*'])
+                c.spline_options['spline_type'] = spline_type
+                self._vars.append(varname)
+
+    def configure(self):
+        """
+        add IndepVarComp's for all remaining planform variables
+        """
+        st3d = self.st3dinit
+
+        for i in range(st3d['DPs'].shape[1]):
+            varname = 'DP%02d' % i
+            var = st3d['DPs'][:, i]
+            if varname not in self._vars:
+                self.add(varname + '_c', IndepVarComp(varname, var), promotes=['*'])
+
         for ireg, reg in enumerate(st3d['regions']):
             for i, lname in enumerate(reg['layers']):
-                varname = 'r%i%s' % (ireg, lname)
-                self.add(varname+'T_c', IndepVarComp(varname + 'T', np.zeros(nsec)), promotes=['*'])
-                self.add(varname+'A_c', IndepVarComp(varname + 'A', np.zeros(nsec)), promotes=['*'])
-                self._varnames.append(varname)
-
-        # now add a component for each section
-        cid = self.add('cid', ParallelGroup())
-        CSCode = config['cs_props']['model']
-        try:
-            promotions = config['cs_props']['promotes']
-        except:
-            promotions = []
-        for i in range(nsec):
-            secname = 'sec%03d' % i
-            cid.add(secname, CSCode(config['cs_props'], st3d, surface.shape[0]), promotes=promotions)
-            # create connections
-            self.connect('matprops', 'cid.%s.matprops' % secname)
-            self.connect('failmat', 'cid.%s.failmat' % secname)
-            self.connect(secname+'DPs', 'cid.%s.DPs' % secname)
-            self.connect(secname+'coords', 'cid.%s.coords' % secname)
-
-            for name in self._varnames:
-                self.connect(name + 'T', 'cid.%s.%sT' % (secname, name), src_indices=([i]))
-                self.connect(name + 'A', 'cid.%s.%sA' % (secname, name), src_indices=([i]))
-
-        self.add('postpro', Postprocess(nsec), promotes=['hub_radius',
-                                                         'blade_s',
-                                                         'beam_structure',
-                                                         'blade_mass',
-                                                         'blade_mass_moment'])
-        for i in range(nsec):
-            secname = 'sec%03d' % i
-            self.connect('cid.%s.cs_props' % secname, 'postpro.cs_props%03d' % i)
+                varname = 'r%02d%s' % (ireg, lname)
+                if varname+'T' not in self._vars:
+                    self.add(varname + 'T_c', IndepVarComp(varname + 'T', reg['thicknesses'][:, i]), promotes=['*'])
+                if varname+'A' not in self._vars:
+                    self.add(varname + 'A_c', IndepVarComp(varname + 'A', reg['angles'][:, i]), promotes=['*'])
+        for ireg, reg in enumerate(st3d['webs']):
+            for i, lname in enumerate(reg['layers']):
+                varname = 'w%02d%s' % (ireg, lname)
+                if varname+'T' not in self._vars:
+                    self.add(varname + 'T_c', IndepVarComp(varname + 'T', reg['thicknesses'][:, i]), promotes=['*'])
+                if varname+'A' not in self._vars:
+                    self.add(varname + 'A_c', IndepVarComp(varname + 'A', reg['angles'][:, i]), promotes=['*'])
