@@ -1,6 +1,0 @@
-layout:
-  type: array
-  size: n, 2
-  units: m
-  desc: Wind turbine position (x,y). n is the number of turbines.
-
