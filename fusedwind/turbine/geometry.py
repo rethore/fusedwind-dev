@@ -194,6 +194,83 @@ def read_blade_planform(filename):
 
     return pf
 
+def write_blade_planform(pf, filename):
+    """
+    write a planform file with columns:
+
+    |  s: normalized running length of blade
+    |  x: x-coordinates of blade axis
+    |  y: y-coordinates of blade axis
+    |  z: z-coordinates of blade axis
+    |  rot_x: x-rotation of blade axis
+    |  rot_y: y-rotation of blade axis
+    |  rot_z: z-rotation of blade axis
+    |  chord: chord distribution
+    |  rthick: relative thickness distribution
+    |  p_le: pitch axis aft leading edge distribution
+
+    parameters
+    ----------
+    pf: dict
+        planform dictionary
+    filename: str
+        path to file containing planform data
+    """
+
+    data = np.zeros((pf['x'].shape[0], 9))
+    s = calculate_length(data[:, [0, 1, 2]])
+
+    names = ['x', 'y', 'z', 'rot_z', 'rot_y', 'rot_z',
+             'chord', 'rthick', 'p_le']
+    for i, name in enumerate(names):
+        data[:, i] = pf[name]
+    fid = open(filename, 'w')
+    exp_prec = 15             # exponential precesion
+    col_width = exp_prec + 10  # column width required for exp precision
+    header_full = ''
+    header_full += ''.join([(hh + ' [%i]').center(col_width + 1) % i
+                           for i, hh in enumerate(names)]) + '\n'
+    fid.write(header_full)
+    np.savetxt(fid, data)
+
+
+class BladePlanformWriter(Component):
+
+    def __init__(self, size_in, filebase='blade'):
+        super(BladePlanformWriter, self).__init__()
+
+        self.filebase = filebase + '%i' % self.__hash__()
+
+        self.add_param('x', np.zeros(size_in))
+        self.add_param('y', np.zeros(size_in))
+        self.add_param('z', np.zeros(size_in))
+        self.add_param('chord', np.zeros(size_in))
+        self.add_param('rthick', np.zeros(size_in))
+        self.add_param('rot_x', np.zeros(size_in))
+        self.add_param('rot_y', np.zeros(size_in))
+        self.add_param('rot_z', np.zeros(size_in))
+        self.add_param('p_le', np.zeros(size_in))
+
+        self._exec_count = 0
+
+    def solve_nonlinear(self, params, unknowns, resids):
+
+        self._exec_count += 1
+
+        pf = {}
+        pf['x'] = params['x']
+        pf['y'] = params['y']
+        pf['z'] = params['z']
+        pf['rot_x'] = params['rot_x']
+        pf['rot_y'] = params['rot_y']
+        pf['rot_z'] = params['rot_z']
+        pf['chord'] = params['chord']
+        pf['rthick'] = params['rthick']
+        pf['p_le'] = params['p_le']
+
+        write_blade_planform(pf, self.filebase + '_it%i.pfd'%self._exec_count)
+
+
 def redistribute_planform(pf, dist=[], s=None, spline_type='akima'):
     """
     redistribute a blade planform
