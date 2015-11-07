@@ -13,8 +13,11 @@ try:
     from PGL.main.planform import redistribute_planform
     from PGL.components.loftedblade import LoftedBladeSurface
     from PGL.main.bezier import BezierCurve
+    _PGL_installed = True
 except:
+    _PGL_installed = False
     print 'warning: PGL not installed'
+
 
 class SplineBase(object):
     """
@@ -399,10 +402,17 @@ class PGLRedistributedPlanform(Component):
         pf_in['rthick'] = params['rthick']
         pf_in['p_le'] = params['p_le']
 
-        pf = redistribute_planform(pf_in, s=self.s_new, spline_type=self.spline_type)
+        if _PGL_installed:
+            pf = redistribute_planform(pf_in, s=self.s_new, spline_type=self.spline_type)
+        else:
+            pf = {}
+            for k, v in pf_in.iteritems():
+                spl = pchip(pf_in['s'], v)
+                pf[k] = spl(self.s_new)
+
         for k, v in pf.iteritems():
             unknowns[k+self._suffix] = v
-        unknowns['athick'+self._suffix]
+        unknowns['athick'+self._suffix] = pf['chord'] * pf['rthick']
 
 
 class FFDSpline(Component):
@@ -613,6 +623,7 @@ class SplinedBladePlanform(Group):
         self.connect('rthick', 'athick_c.rthick')
         self.connect('chord', 'athick_c.chord')
 
+
 class PGLLoftedBladeSurface(Component):
     """
     class for generating a simple lofted blade surface
@@ -624,6 +635,10 @@ class PGLLoftedBladeSurface(Component):
 
     def __init__(self, config, size_in=200, size_out=(200, 20, 3), suffix=''):
         super(PGLLoftedBladeSurface, self).__init__()
+
+        self._dry_run = False
+        if not _PGL_installed:
+            self._dry_run = True
 
         self.add_param('blade_length', 1.)
 
@@ -682,6 +697,14 @@ class PGLLoftedBladeSurface(Component):
         self._pgl_config_called = True
 
     def solve_nonlinear(self, params, unknowns, resids):
+
+        if self._dry_run:
+            ni = params['s'  + self._suffix].shape[0]
+            surf = np.zeros([self.config['ni_chord'], ni, 3])
+            surf[:, :, 2] = params['s'  + self._suffix]
+            self.unknowns['blade_surface' + self._suffix] = surf
+            self.unknowns['blade_surface_norm' + self._suffix] = surf
+            return
 
         if not self._pgl_config_called:
             self._configure_interpolator()
