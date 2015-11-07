@@ -10,6 +10,7 @@ from openmdao.api import IndepVarComp
 
 from fusedwind.turbine.geometry import FFDSpline
 
+
 def read_bladestructure(filebase):
     """
     input file reader of BladeStructureVT3D data
@@ -111,6 +112,7 @@ def read_bladestructure(filebase):
 
     return st3d
 
+
 def write_bladestructure(st3d, filebase):
     """
     input file writer for a blade structure definition
@@ -181,6 +183,7 @@ def write_bladestructure(st3d, filebase):
         data = np.append(data, reg['angles'], axis=1)
         np.savetxt(fid, data)
         fid.close()
+
 
 def interpolate_bladestructure(st3d, s_new):
     """
@@ -307,7 +310,8 @@ class SplinedBladeStructure(Group):
             #     return
 
             var = st3d['DPs'][:, iDP]
-            c = self.add(name + '_c', FFDSpline(name, st3d['s'],
+            self.add(name + '_c', IndepVarComp(name + '_C', np.zeros(len(Cx))), promotes=['*'])
+            c = self.add(name + '_s', FFDSpline(name, st3d['s'],
                                                       var,
                                                       Cx),
                                                       promotes=['*'])
@@ -315,14 +319,14 @@ class SplinedBladeStructure(Group):
             self._vars.append(name)
 
         elif name.startswith('r') or name.startswith('w'):
-
+            l_index = None
             try:
                 ireg = int(name[1:3])
                 try:
-                    split = re.match(r"([a-z]+)([a-z]+)", name[3:], re.I).groups()
-                except:
                     split = re.match(r"([a-z]+)([0-9]+)([a-z]+)", name[3:], re.I).groups()
                     l_index = split[1]
+                except:
+                    split = re.match(r"([a-z]+)([a-z]+)", name[3:], re.I).groups()
                 layername = split[0]
                 stype = split[-1]
             except:
@@ -347,7 +351,8 @@ class SplinedBladeStructure(Group):
                 elif stype == 'A':
                     var = r['angles'][:, ilayer]
 
-                c = self.add(varname + '_c', FFDSpline(varname, st3d['s'],
+                self.add(varname + '_c', IndepVarComp(varname + '_C', np.zeros(len(Cx))), promotes=['*'])
+                c = self.add(varname + '_s', FFDSpline(varname, st3d['s'],
                                                           var,
                                                           Cx),
                                                           promotes=['*'])

@@ -576,21 +576,23 @@ class SplinedBladePlanform(Group):
         # chord needs to be scaled according to blade scale parameter
         if name == 'chord':
             cname = name + '_c'
-            c = self.add(name + '_c', FFDSpline('chord',
+            self.add(cname, IndepVarComp(name + '_C', np.zeros(len(Cx))), promotes=['*'])
+            c = self.add(name + '_s', FFDSpline('chord',
                                                 s=self.pfinit['s'],
                                                 P=self.pfinit['chord'],
                                                 Cx=Cx),
                                                 promotes=['chord_C'])
             c.spline_options['spline_type'] = spline_type
             self.add('chord_scaler', ScaleChord(self._size), promotes=['blade_scale', 'chord'])
-            self.connect('chord_c.chord', 'chord_scaler.chord_in')
+            self.connect('chord_s.chord', 'chord_scaler.chord_in')
         else:
             cname = name + '_c'
-            c = self.add(name + '_c', FFDSpline(name,
+            self.add(cname, IndepVarComp(name + '_C', np.zeros(len(Cx))), promotes=['*'])
+            c = self.add(name + '_s', FFDSpline(name,
                                                 s=self.pfinit['s'],
                                                 P=self.pfinit[name],
                                                 Cx=Cx),
-                                                promotes=[name + '_C', name])
+                                                promotes=[name, name + '_C'])
             c.spline_options['spline_type'] = spline_type
 
     def configure(self):
