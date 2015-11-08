@@ -421,7 +421,7 @@ class FFDSpline(Component):
     """
 
 
-    def __init__(self, name, s, P, Cx):
+    def __init__(self, name, s, P, Cx, scaler=1.):
         super(FFDSpline, self).__init__()
 
         self._name = name
@@ -434,6 +434,7 @@ class FFDSpline(Component):
         self.s = s
         self.Pinit = P
         self._size = P.shape[0]
+        self.scaler = scaler
 
         self.add_param(name + '_C', np.zeros(self.nC), desc='spline control points')
         self.add_output(name, np.zeros(self._size))
@@ -460,7 +461,7 @@ class FFDSpline(Component):
             # self.Pbase = self.base_spline(self.s, self.xinit, self.Pinit)
             self.spline.initialize(self.s, self.Cx, C)
         self._P = self.spline(self.s, self.Cx, C)
-        P = self.Pinit + self._P
+        P = self.Pinit + self._P * self.scaler
         curv = curvature(np.array([self.s, P]).T)
         unknowns[self._name] = P
         unknowns[self._name + '_curv'] = curv
@@ -554,7 +555,7 @@ class SplinedBladePlanform(Group):
 
         self.add('blade_scale_c', IndepVarComp('blade_scale', 1.), promotes=['*'])
 
-    def add_spline(self, name, Cx, spline_type='bezier'):
+    def add_spline(self, name, Cx, spline_type='bezier', scaler=1.):
         """
         adds an FFDSpline for the given planform variable
         with user defined spline type and control point locations
@@ -590,7 +591,7 @@ class SplinedBladePlanform(Group):
             c = self.add(name + '_s', FFDSpline('chord',
                                                 s=self.pfinit['s'],
                                                 P=self.pfinit['chord'],
-                                                Cx=Cx),
+                                                Cx=Cx, scaler=scaler),
                                                 promotes=['chord_C'])
             c.spline_options['spline_type'] = spline_type
             self.add('chord_scaler', ScaleChord(self._size), promotes=['blade_scale', 'chord'])
@@ -601,7 +602,7 @@ class SplinedBladePlanform(Group):
             c = self.add(name + '_s', FFDSpline(name,
                                                 s=self.pfinit['s'],
                                                 P=self.pfinit[name],
-                                                Cx=Cx),
+                                                Cx=Cx, scaler=scaler),
                                                 promotes=[name, name + '_C'])
             c.spline_options['spline_type'] = spline_type
 

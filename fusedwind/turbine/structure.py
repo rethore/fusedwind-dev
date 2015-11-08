@@ -280,7 +280,7 @@ class SplinedBladeStructure(Group):
         # add materials strength properties array ((18, nmat))
         self.add('failmat_c', IndepVarComp('failmat', st3d['failmat']), promotes=['*'])
 
-    def add_spline(self, name, Cx, spline_type='bezier', symm=True):
+    def add_spline(self, name, Cx, spline_type='bezier', symm=True, scaler=1.):
         """
         adds a 1D FFDSpline for the given variable
         with user defined spline type and control point locations.
@@ -313,7 +313,7 @@ class SplinedBladeStructure(Group):
             self.add(name + '_c', IndepVarComp(name + '_C', np.zeros(len(Cx))), promotes=['*'])
             c = self.add(name + '_s', FFDSpline(name, st3d['s'],
                                                       var,
-                                                      Cx),
+                                                      Cx, scaler=scaler),
                                                       promotes=['*'])
             c.spline_options['spline_type'] = spline_type
             self._vars.append(name)
@@ -343,6 +343,8 @@ class SplinedBladeStructure(Group):
                 lnames = [layername, layername + '01']
             else:
                 lnames = [layername]
+            if symm:
+                self.add(name + '_c', IndepVarComp(name + '_C', np.zeros(len(Cx))), promotes=['*'])
             for lname in lnames:
                 varname = '%s%s%s' % (rname, lname, stype)
                 ilayer = r['layers'].index(lname)
@@ -350,12 +352,16 @@ class SplinedBladeStructure(Group):
                     var = r['thicknesses'][:, ilayer]
                 elif stype == 'A':
                     var = r['angles'][:, ilayer]
-
-                self.add(varname + '_c', IndepVarComp(varname + '_C', np.zeros(len(Cx))), promotes=['*'])
+                if symm:
+                    self.connect(name + '_C', varname + '_s.' + varname + '_C')
+                    promotes = [varname]
+                else:
+                    self.add(varname + '_c', IndepVarComp(varname + '_C', np.zeros(len(Cx))), promotes=['*'])
+                    promotes = [varname, varname + '_C']
                 c = self.add(varname + '_s', FFDSpline(varname, st3d['s'],
                                                           var,
-                                                          Cx),
-                                                          promotes=['*'])
+                                                          Cx, scaler=scaler),
+                                                          promotes=promotes)
                 c.spline_options['spline_type'] = spline_type
                 self._vars.append(varname)
 
