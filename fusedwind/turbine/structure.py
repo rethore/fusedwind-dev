@@ -85,7 +85,7 @@ def read_bladestructure(filebase):
         r['layers'] = layers
         r['thicknesses'] = cldata[:, 1:nl + 1]
         if cldata.shape[1] == nl*2 + 1:
-            r['angles'] = cldata[:, nl + 2:2*nl + 2]
+            r['angles'] = cldata[:, nl + 1:2*nl+1 + 2]
         else:
             r['angles'] = np.zeros((cldata.shape[0], nl))
         st3d['regions'].append(r)
@@ -105,7 +105,7 @@ def read_bladestructure(filebase):
         r['layers'] = layers
         r['thicknesses'] = cldata[:, 1:nl + 1]
         if cldata.shape[1] == nl*2 + 1:
-            r['angles'] = cldata[:, nl + 2:2*nl + 2]
+            r['angles'] = cldata[:, nl + 1:2*nl+1 + 2]
         else:
             r['angles'] = np.zeros((cldata.shape[0], nl))
         st3d['webs'].append(r)
