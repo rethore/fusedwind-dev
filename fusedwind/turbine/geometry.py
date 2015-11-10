@@ -681,7 +681,8 @@ class PGLLoftedBladeSurface(Component):
 
         self.rot_order = np.array([2,1,0])
 
-        self.pgl_surf = LoftedBladeSurface(**self.config)
+        if not self._dry_run:
+            self.pgl_surf = LoftedBladeSurface(**self.config)
         self._pgl_config_called = False
 
     def _configure_interpolator(self):
