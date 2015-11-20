@@ -82,8 +82,22 @@ class TestProblemBuilder(unittest.TestCase):
         p.run()
         self.assertEqual(p['p0'], 6.)
 
-    def test_exec(self):
+    def test_listindeps(self):
 
+        c = {'root':
+                {'class': 'Group',
+                 'components':
+                    [
+                    {'name': 'x_c',
+                    'class': 'IndepVarComp',
+                    'parameter': ['p0', 6.],
+                    'promotes': ['*']}]}}
+        yaml.dump(c, open('simple.yml', 'w'))
+        p = FUSEDProblem(filename='simple.yml')
+        p.setup()
+        self.assertEqual(p.list_indepvars(), ['p0'])
+
+    def test_exec(self):
         c = {'root':
                 {'class': 'Group',
                  'components':

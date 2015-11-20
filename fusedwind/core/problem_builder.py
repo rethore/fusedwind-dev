@@ -61,3 +61,11 @@ class FUSEDProblem(Problem):
         inputs = readyml(filename)
         for k,v in inputs.items():
             self[k] = v
+
+    def list_indepvars(self):
+
+        indeps = []
+        for c in self.root.components():
+            if isinstance(c, IndepVarComp):
+                indeps.extend(c._unknowns_dict.keys())
+        return indeps
