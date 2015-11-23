@@ -288,7 +288,7 @@ class SplinedBladeStructure(Group):
         # add materials strength properties array ((18, nmat))
         self.add('failmat_c', IndepVarComp('failmat', st3d['failmat']), promotes=['*'])
 
-    def add_spline(self, name, Cx, spline_type='bezier', symm=True, scaler=1.):
+    def add_spline(self, name, Cx, spline_type='bezier', scaler=1.):
         """
         adds a 1D FFDSpline for the given variable
         with user defined spline type and control point locations.
@@ -308,70 +308,79 @@ class SplinedBladeStructure(Group):
         """
 
         st3d = self.st3dinit
-
+        if isinstance(name, str):
+            names = [name]
+        else:
+            names = name
         # decode the name
-        if 'DP' in name:
-            # try:
-            iDP = int(re.match(r"([a-z]+)([0-9]+)", name, re.I).groups()[-1])
-            # except:
-            #     print('Variable name %s not understood' % name)
-            #     return
-
-            var = st3d['DPs'][:, iDP]
-            self.add(name + '_c', IndepVarComp(name + '_C', np.zeros(len(Cx))), promotes=['*'])
-            c = self.add(name + '_s', FFDSpline(name, st3d['s'],
-                                                      var,
-                                                      Cx, scaler=scaler),
-                                                      promotes=['*'])
-            c.spline_options['spline_type'] = spline_type
-            self._vars.append(name)
-
-        elif name.startswith('r') or name.startswith('w'):
-            l_index = None
-            try:
-                ireg = int(name[1:3])
+        print 'start', names
+        if 'DP' in names[0]:
+            tvars = []
+            for name in names:
                 try:
-                    split = re.match(r"([a-z]+)([0-9]+)([a-z]+)", name[3:], re.I).groups()
-                    l_index = split[1]
+                    iDP = int(re.match(r"([a-z]+)([0-9]+)", name, re.I).groups()[-1])
                 except:
-                    split = re.match(r"([a-z]+)([a-z]+)", name[3:], re.I).groups()
-                layername = split[0]
-                stype = split[-1]
-            except:
-                print('Variable name %s not understood' % name)
-                return
+                    raise RuntimeError('Variable name %s not understood' % name)
 
-            if name.startswith('r'):
-                r = st3d['regions'][ireg]
-                rname = 'r%02d' % ireg
-            elif name.startswith('w'):
-                r = st3d['webs'][ireg]
-                rname = 'w%02d' % ireg
-            if symm:
-                lnames = [layername, layername + '01']
-            else:
-                lnames = [layername]
-            if symm:
-                self.add(name + '_c', IndepVarComp(name + '_C', np.zeros(len(Cx))), promotes=['*'])
-            for lname in lnames:
-                varname = '%s%s%s' % (rname, lname, stype)
-                ilayer = r['layers'].index(lname)
+                var = st3d['DPs'][:, iDP]
+                c = self.add(name + '_s', FFDSpline(name, st3d['s'],
+                                                          var,
+                                                          Cx, scaler=scaler),
+                                                          promotes=[name])
+                c.spline_options['spline_type'] = spline_type
+                tvars.append(name)
+            self._vars.extend(tvars)
+
+            # add the IndepVarComp
+            self.add(names[0] + '_c', IndepVarComp(names[0] + '_C', np.zeros(len(Cx))), promotes=['*'])
+            for varname in tvars:
+                self.connect(names[0] + '_C', varname + '_s.' + varname + '_C')
+        else:
+            tvars = []
+
+            for name in names:
+                print 'NAME', name
+                if name.startswith('r') or name.startswith('w'):
+                    l_index = None
+                    # try:
+                    ireg = int(name[1:3])
+                    try:
+                        split = re.match(r"([a-z]+)([0-9]+)([a-z]+)", name[3:], re.I).groups()
+                        l_index = split[1]
+                    except:
+                        split = re.match(r"([a-z]+)([a-z]+)", name[3:], re.I).groups()
+                    layername = split[0]
+                    stype = split[-1]
+                    # except:
+                    #     raise RuntimeError('Variable name %s not understood' % name)
+                else:
+                    raise RuntimeError('Variable name %s not understood' % name)
+
+                if name.startswith('r'):
+                    r = st3d['regions'][ireg]
+                    rname = 'r%02d' % ireg
+                elif name.startswith('w'):
+                    r = st3d['webs'][ireg]
+                    rname = 'w%02d' % ireg
+
+                varname = '%s%s%s' % (rname, layername, stype)
+                ilayer = r['layers'].index(layername)
                 if stype == 'T':
                     var = r['thicknesses'][:, ilayer]
                 elif stype == 'A':
                     var = r['angles'][:, ilayer]
-                if symm:
-                    self.connect(name + '_C', varname + '_s.' + varname + '_C')
-                    promotes = [varname]
-                else:
-                    self.add(varname + '_c', IndepVarComp(varname + '_C', np.zeros(len(Cx))), promotes=['*'])
-                    promotes = [varname, varname + '_C']
-                c = self.add(varname + '_s', FFDSpline(varname, st3d['s'],
-                                                          var,
-                                                          Cx, scaler=scaler),
-                                                          promotes=promotes)
+                c = self.add(name + '_s', FFDSpline(name, st3d['s'],
+                                                       var,
+                                                       Cx, scaler=scaler),
+                                                       promotes=[name])
                 c.spline_options['spline_type'] = spline_type
-                self._vars.append(varname)
+                tvars.append(name)
+
+            self._vars.extend(tvars)
+            # finally add the IndepVarComp and make the connections
+            self.add(names[0] + '_c', IndepVarComp(names[0] + '_C', np.zeros(len(Cx))), promotes=['*'])
+            for varname in tvars:
+                self.connect(names[0] + '_C', varname + '_s.' + varname + '_C')
 
     def configure(self):
         """

@@ -21,8 +21,10 @@ def configure():
 
     p = Problem(root=Group())
     spl = p.root.add('st_splines', SplinedBladeStructure(st3dn), promotes=['*'])
-    spl.add_spline('DP04', np.linspace(0, 1, 4), spline_type='bezier')
-    spl.add_spline('r04uniaxT', np.linspace(0, 1, 4), spline_type='bezier')
+    spl.add_spline('DP08', np.linspace(0, 1, 4), spline_type='bezier')
+    spl.add_spline('DP09', np.linspace(0, 1, 4), spline_type='bezier')
+    spl.add_spline(('DP04', 'DP05'), np.linspace(0, 1, 4), spline_type='bezier')
+    spl.add_spline(('r04uniaxT', 'r04uniax01T'), np.linspace(0, 1, 4), spline_type='bezier')
     spl.add_spline('w02biaxT', np.linspace(0, 1, 4), spline_type='bezier')
     spl.configure()
     p.setup()
@@ -56,7 +58,7 @@ def configure_with_surface():
 
     spl = p.root.add('st_splines', SplinedBladeStructure(st3dn), promotes=['*'])
     spl.add_spline('DP04', np.linspace(0, 1, 4), spline_type='bezier')
-    spl.add_spline('r04uniaxT', np.linspace(0, 1, 4), spline_type='bezier')
+    spl.add_spline(('r04uniaxT', 'r04uniax01T'), np.linspace(0, 1, 4), spline_type='bezier')
     spl.add_spline('w02biaxT', np.linspace(0, 1, 4), spline_type='bezier')
     spl.configure()
     p.root.add('st_props', BladeStructureProperties((200, nsec, 3), st3dn, [4,5,8,9]), promotes=['*'])
@@ -79,7 +81,8 @@ class TestSplinedBladeStructure(unittest.TestCase):
                              0.00836037,  0.00643492,  0.0013    ])
         DP04 = np.array([-0.49644126, -0.48696236, -0.34930237, -0.31670771, -0.33028392,
                          -0.35351936, -0.3801164 , -0.3808905 ])
-
+        DP05 = np.array([-0.3638539 , -0.34034888, -0.21823594, -0.1873391 , -0.19636527,
+                         -0.21358559, -0.23647097, -0.15612563])
         p = configure()
         p['r04uniaxT_C'][2] = 0.01
         p['w02biaxT_C'][2] = 0.01
@@ -87,6 +90,7 @@ class TestSplinedBladeStructure(unittest.TestCase):
         p.run()
 
         self.assertEqual(np.testing.assert_array_almost_equal(p['r04uniaxT'], r04uniax, decimal=6), None)
+        self.assertEqual(np.testing.assert_array_almost_equal(p['r04uniax01T'], r04uniax, decimal=6), None)
         self.assertEqual(np.testing.assert_array_almost_equal(p['w02biaxT'], w02biax, decimal=6), None)
         self.assertEqual(np.testing.assert_array_almost_equal(p['DP04'], DP04, decimal=6), None)
 
@@ -117,9 +121,11 @@ class TestSplinedBladeStructure(unittest.TestCase):
 if __name__ == '__main__':
 
     unittest.main()
+    # p = configure()
     # p = configure_with_surface()
     # p['r04uniaxT_C'][2] = 0.01
     # p['w02biaxT_C'][2] = 0.01
     # p['DP04_C'][1] = 0.1
-
+    # st3d = read_bladestructure('data/DTU10MW')
+    # st3dn = interpolate_bladestructure(st3d, np.linspace(0, 1, 8))
     # p.run()
