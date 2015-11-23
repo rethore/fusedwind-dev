@@ -265,7 +265,7 @@ def interpolate_bladestructure(st3d, s_new):
 class SplinedBladeStructure(Group):
     """
     class that adds structural geometry variables to the analysis
-    either as either as splines with user defined control points
+    either as splines with user defined control points
     or arrays according to the initial structural data
     """
 
@@ -295,16 +295,29 @@ class SplinedBladeStructure(Group):
 
         parameters
         ----------
-        name: str
-            name of the variable, which should be of the form
-            r04uniaxT or r04uniaxA for region 4 uniax thickness
-            and angle, respectively.
+        name: str or tuple
+            name of the variable(s), which should be of the form
+            `r04uniaxT` or `r04uniaxA` for region 4 uniax thickness
+            and angle, respectively. if `name` is a list of names,
+            spline CPs will be grouped.
         Cx: array
             spanwise distribution of control points
         spline_type: str
             spline type used in FFD, options:
             | bezier
             | pchip
+
+        examples
+        --------
+        | name: `DP04`
+        | resulting spline CPs: `DP04_C`
+
+        | name: `r04uniaxT`
+        | resulting spline CPs: `r04uniaxT_C`
+
+        | name: (`r04uniaxT`, `r04uniax01T`)
+        | resulting spline CPs: `r04uniaxT_C` which controls both
+        thicknesses as a group.
         """
 
         st3d = self.st3dinit
