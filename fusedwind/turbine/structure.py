@@ -10,6 +10,14 @@ from openmdao.api import IndepVarComp
 
 from fusedwind.turbine.geometry import FFDSpline
 
+try:
+    from PGL.components.airfoil import AirfoilShape
+    from PGL.main.geom_tools import curvature
+    _PGL_installed = True
+except:
+    print('Warning: PGL not installed, some components will not function correctly')
+    _PGL_installed = False
+
 
 def read_bladestructure(filebase):
     """
@@ -391,3 +399,147 @@ class SplinedBladeStructure(Group):
                     self.add(varname + 'T_c', IndepVarComp(varname + 'T', reg['thicknesses'][:, i]), promotes=['*'])
                 if varname+'A' not in self._vars:
                     self.add(varname + 'A_c', IndepVarComp(varname + 'A', reg['angles'][:, i]), promotes=['*'])
+
+
+class BladeStructureProperties(Component):
+    """
+    Component for computing various characteristics of the
+    structural geometry of the blade.
+
+    parameters
+    ----------
+    blade_length: float
+        physical length of the blade
+    blade_surface_st: array
+        lofted blade surface with structural discretization normalised to unit
+        length
+    DP%02d: array
+        Arrays of normalized DP curves
+    r%02d<materialname>: array
+        arrays of material names
+
+    outputs
+    -------
+    r%02d_thickness: array
+        total thickness of each region
+    web_angle%02d: array
+        angles of webs connecting lower and upper surfaces of OML
+    web_offset%02d: array
+        offsets in global coordinate system of connections between
+        webs and lower and upper surfaces of OML, respectively
+    pacc_u: array
+        upper side pitch axis aft cap center in global coordinate system
+    pacc_l: array
+        lower side pitch axis aft cap center in global coordinate system
+    pacc_u_curv: array
+        curvature of upper side pitch axis aft cap center in
+        global coordinate system
+    pacc_l_curv: array
+        curvature of lower side pitch axis aft cap center in
+        global coordinate system
+    """
+
+    def __init__(self, sdim, st3d, capDPs):
+        """
+        sdim: tuple
+            size of array containing lofted blade surface:
+            (chord_ni, span_ni_st, 3).
+        st3d: dict
+            dictionary containing parametric blade structure.
+        capDPs: list
+            list of indices of DPs with webs attached to them.
+        """
+        super(BladeStructureProperties, self).__init__()
+
+        s = st3d['s']
+        self.nsec = s.shape[0]
+        self.ni_chord = sdim[0]
+        self.nDP = st3d['DPs'].shape[1]
+        DPs = st3d['DPs']
+
+        # DP indices of webs
+        self.web_def = st3d['web_def']
+        self.capDPs = capDPs
+        self.capDPs.sort()
+
+        self.add_param('blade_length', 1., units='m', desc='blade length')
+        self.add_param('blade_surface_st', np.zeros(sdim))
+        for i in range(self.nDP):
+            self.add_param('DP%02d' % i, DPs[:, i])
+
+        self._regions = []
+        self._webs = []
+        for ireg, reg in enumerate(st3d['regions']):
+            layers = []
+            for i, lname in enumerate(reg['layers']):
+                varname = 'r%02d%s' % (ireg, lname)
+                self.add_param(varname + 'T', np.zeros(self.nsec))
+                layers.append(varname)
+            self._regions.append(layers)
+        for ireg, reg in enumerate(st3d['webs']):
+            layers = []
+            for i, lname in enumerate(reg['layers']):
+                varname = 'w%02d%s' % (ireg, lname)
+                self.add_param(varname + 'T', np.zeros(self.nsec))
+                layers.append(varname)
+            self._webs.append(layers)
+
+        for i in range(self.nDP-1):
+            self.add_output('r%02d_width' % i, np.zeros(self.nsec), desc='Region%i width' % i)
+            self.add_output('r%02d_thickness' % i, np.zeros(self.nsec), desc='Region%i thickness' % i)
+
+        for i, w in enumerate(st3d['web_def']):
+            self.add_output('web_angle%02d' % i, np.zeros(self.nsec), desc='Web%02d angle' % i)
+            self.add_output('web_offset%02d' % i, np.zeros((self.nsec, 2)), desc='Web%02d offset' % i)
+
+        self.add_output('pacc_u', np.zeros((self.nsec, 2)), desc='upper side pitch axis aft cap center')
+        self.add_output('pacc_l', np.zeros((self.nsec, 2)), desc='lower side pitch axis aft cap center')
+        self.add_output('pacc_u_curv', np.zeros(self.nsec), desc='upper side pitch axis aft cap center curvature')
+        self.add_output('pacc_l_curv', np.zeros(self.nsec), desc='lower side pitch axis aft cap center curvature')
+
+        self.dp_xyz = np.zeros([self.nsec, self.nDP, 3])
+        self.dp_s01 = np.zeros([self.nsec, self.nDP])
+
+    def solve_nonlinear(self, params, unknowns, resids):
+
+        smax = np.zeros(self.nsec)
+        for i in range(self.nsec):
+            x = params['blade_surface_st'][:, i, :]
+            x[:, 2] *= params['blade_length']
+            af = AirfoilShape(points=x)
+            smax[i] = af.smax
+            for j in range(self.nDP):
+                DP = params['DP%02d' % j][i]
+                DPs01 = af.s_to_01(DP)
+                self.dp_s01[i, j] = DPs01
+                DPxyz = af.interp_s(DPs01)
+                self.dp_xyz[i, j, :] = DPxyz
+
+        # upper and lower side pitch axis aft cap center
+        unknowns['pacc_l'][:, :] = (self.dp_xyz[:, self.capDPs[0], [0,1]] + \
+                                    self.dp_xyz[:, self.capDPs[1], [0,1]]) / 2.
+        unknowns['pacc_u'][:, :] = (self.dp_xyz[:, self.capDPs[2], [0,1]] + \
+                                    self.dp_xyz[:, self.capDPs[3], [0,1]]) / 2.
+
+        # curvatures of region boundary curves
+        unknowns['pacc_l_curv'] = curvature(unknowns['pacc_l'])
+        unknowns['pacc_u_curv'] = curvature(unknowns['pacc_u'])
+
+        # web angles and offsets relative to rotor plane
+        for i, iw in enumerate(self.web_def):
+            offset = self.dp_xyz[:, iw[0], [0,1]] -\
+                     self.dp_xyz[:, iw[1], [0,1]]
+            angle = -np.array([np.arctan(a) for a in offset[:, 0]/offset[:, 1]]) * 180. / np.pi
+            unknowns['web_offset%02d' % i] = offset
+            unknowns['web_angle%02d' % i] = angle
+
+        # region widths
+        for i in range(self.nDP-1):
+            unknowns['r%02d_width' % i] = (self.dp_s01[:, i+1] - self.dp_s01[:, i]) * smax
+
+        # region thicknesses
+        for i, reg in enumerate(self._regions):
+            t = unknowns['r%02d_thickness' % i]
+            t[:] = 0.
+            for lname in reg:
+                t += params[lname + 'T']
