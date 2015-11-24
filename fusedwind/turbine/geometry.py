@@ -223,14 +223,14 @@ def write_blade_planform(pf, filename):
     data = np.zeros((pf['x'].shape[0], 9))
     s = calculate_length(data[:, [0, 1, 2]])
 
-    names = ['x', 'y', 'z', 'rot_z', 'rot_y', 'rot_z',
+    names = ['x', 'y', 'z', 'rot_x', 'rot_y', 'rot_z',
              'chord', 'rthick', 'p_le']
     for i, name in enumerate(names):
         data[:, i] = pf[name]
     fid = open(filename, 'w')
     exp_prec = 15             # exponential precesion
     col_width = exp_prec + 10  # column width required for exp precision
-    header_full = ''
+    header_full = '#'
     header_full += ''.join([(hh + ' [%i]').center(col_width + 1) % i
                            for i, hh in enumerate(names)]) + '\n'
     fid.write(header_full)
@@ -677,7 +677,7 @@ class PGLLoftedBladeSurface(Component):
             if k in self.config.keys():
                 self.config[k] = v
             else:
-                print 'unknown config key %s' % s
+                print 'unknown config key %s' % k
 
         self.rot_order = np.array([2,1,0])
 
