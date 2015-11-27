@@ -727,11 +727,7 @@ class PGLLoftedBladeSurface(Component):
         self.pgl_surf.build_blade()
 
         surf = self.pgl_surf.surface
-        surf[:, :, 0] *= params['blade_length']
-        surf[:, :, 1] *= params['blade_length']
         surfnorot = self.pgl_surf.surfnorot
-        surfnorot[:, :, 0] *= params['blade_length']
-        surfnorot[:, :, 1] *= params['blade_length']
 
         self.unknowns['blade_surface' + self._suffix] = surf
         self.unknowns['blade_surface_norm' + self._suffix] = surfnorot
