@@ -553,8 +553,6 @@ class SplinedBladePlanform(Group):
         self.pfinit = pf
         self._vars = []
 
-        self.add('blade_scale_c', IndepVarComp('blade_scale', 1.), promotes=['*'])
-
     def add_spline(self, name, Cx, spline_type='bezier', scaler=1.):
         """
         adds an FFDSpline for the given planform variable
