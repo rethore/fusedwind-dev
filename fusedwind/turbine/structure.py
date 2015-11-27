@@ -309,15 +309,10 @@ class SplinedBladeStructure(Group):
 
         examples
         --------
-        | name: `DP04`
-        | resulting spline CPs: `DP04_C`
-
-        | name: `r04uniaxT`
-        | resulting spline CPs: `r04uniaxT_C`
-
-        | name: (`r04uniaxT`, `r04uniax01T`)
-        | resulting spline CPs: `r04uniaxT_C` which controls both
-        thicknesses as a group.
+        | name: DP04 results in spline CPs indepvar: DP04_C,
+        | name: r04uniaxT results in spline CPs indepvar: r04uniaxT_C,
+        | name: (r04uniaxT, r04uniax01T) results in spline CPs: r04uniaxT_C
+        which controls both thicknesses as a group.
         """
 
         st3d = self.st3dinit
@@ -326,7 +321,6 @@ class SplinedBladeStructure(Group):
         else:
             names = name
         # decode the name
-        print 'start', names
         if 'DP' in names[0]:
             tvars = []
             for name in names:
@@ -352,7 +346,6 @@ class SplinedBladeStructure(Group):
             tvars = []
 
             for name in names:
-                print 'NAME', name
                 if name.startswith('r') or name.startswith('w'):
                     l_index = None
                     # try:
