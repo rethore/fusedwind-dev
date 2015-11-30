@@ -420,7 +420,8 @@ class BladeLayup(object):
         
         This method compares the length of any vectors in DPs, regions and webs
         with BladeLayup's s length. Further, materials set as layers are checked
-        for their existence in the materials dict.
+        for their existence in the materials dict. Also initilized objects are 
+        checked if they have unset values.
         '''
         print('Starting consistency check of BladeLeayup.')
         #  check BladeLayup attributes
