@@ -63,6 +63,43 @@ class Material(object):
     :param C3a: safety factor for the manufacturing process
     :param C4a: safety factor for the effect of post-curing
     '''
+    def __init__(self):
+        self.E1 = None
+        self.E2 = None
+        self.E3 = None
+        self.nu12 = None
+        self.nu13 = None
+        self.nu23 = None
+        self.nu21 = None
+        self.nu31 = None
+        self.nu32 = None
+        self.G12 = None
+        self.G13 = None
+        self.G23 = None
+        self.rho = None
+        self.s11_t = None
+        self.s22_t = None
+        self.s33_t = None
+        self.s11_c = None
+        self.s22_c = None
+        self.s33_c = None
+        self.t12 = None
+        self.t13 = None
+        self.t23 = None
+        self.e11_c = None
+        self.e22_c = None
+        self.e33_c = None
+        self.e11_t = None
+        self.e22_t = None
+        self.e33_t = None
+        self.g12 = None
+        self.g13 = None
+        self.g23 = None
+        self.gM0 = None
+        self.C1a = None
+        self.C2a = None
+        self.C3a = None
+        self.C4a = None
     
     def _minor_poissons_ratios(self):
         ''' Derives minor Poisson's ratios
@@ -252,7 +289,7 @@ class DivisionPoint(object):
     '''
     def __init__(self):
         self.arc = None
-       
+
 class Layer(object):
     """ Holds a layer's thickness and angle along the blade.
 
@@ -266,7 +303,7 @@ class Layer(object):
     """
     def __init__(self):
         self.thickness = None
-        self.angle = None 
+        self.angle = None
 
 class Region(object):
     """ Holds a region's layers along the blade.
@@ -288,10 +325,7 @@ class Region(object):
             if name in k:
                 dubl += 1
 
-        if dubl > 0:
-            lname = '%s%02d' % (name, dubl)
-        else:
-            lname = name
+        lname = '%s%02d' % (name, dubl)
         
         layer = Layer()
         self.layers[lname] = layer
@@ -317,7 +351,9 @@ class BladeLayup(object):
         self.iwebs = None
         self.DPs = OrderedDict()
         self.materials = OrderedDict()
-
+        
+        self._warns = 0 # counter for inconsistencies
+    
     def init_regions(self, nr, names=[]):
         ''' Initialize a number of nr regions.
         
@@ -378,8 +414,85 @@ class BladeLayup(object):
         material = Material()
         self.materials[name] = material
         return material
+    
+    def check_consistency(self):
+        ''' Checks the consistency of the BladeLayup.
         
+        This method compares the length of any vectors in DPs, regions and webs
+        with BladeLayup's s length. Further, materials set as layers are checked
+        for their existence in the materials dict.
+        '''
+        print('Starting consistency check of BladeLeayup.')
+        #  check BladeLayup attributes
+        for attr, val in self.__dict__.iteritems():
+            if val is None:
+                self._warns += 1
+                print('Attribute %s is not set.') % (attr)
         
+        # check material attributes
+        for km, vm in self.materials.iteritems():
+            for attr, val in vm.__dict__.iteritems():
+                if val is None:
+                    self._warns += 1
+                    print('%s\'s attribute %s is not set.') % (km, attr)
+            
+        # calc BladeLayup's s length
+        len_s = len(self.s)
+        # check DPs
+        for dpk, dpv in self.DPs.iteritems():
+            # check DP attributes
+            for attr, val in dpv.__dict__.iteritems():
+                if val is None:
+                    self._warns += 1
+                    print('%s\'s attribute %s is not set.') % (dpk, attr)
+            # check DP lengths
+            len_dp = len(dpv.arc)
+            if len_dp != len_s:
+                self._warns += 1
+                print('%s\'s size (%s) is unequal to size of s (%s).') % (dpk, len_dp, len_s)
+        
+        def _check_regions(dictionary):
+            ''' Check regions' consistency.
+            
+            :param dictionary: self.regions or self.webs
+            '''
+            for rk, rv in dictionary.iteritems():
+                # check dictionary attributes
+                for attr, val in rv.__dict__.iteritems():
+                    if val is None:
+                        self._warns += 1
+                        print('%s\'s attribute %s is not set.') % (rk, attr)
+                for lk, lv in rv.layers.iteritems():
+                    # check layer attres
+                    for attr, val in lv.__dict__.iteritems():
+                        if val is None:
+                            self._warns += 1
+                            print('%s\'s %s attribute %s is not set.') % (rk, lk, attr)
+                    # check if layer's materials exist
+                    # note: last two digits comply layer nr.
+                    if lk[:-2] not in self.materials.iterkeys():
+                        #if lk not in self.materials.iterkeys():
+                        self._warns += 1
+                        print('%s\'s %s does not exist in materials dict.') % (rk, lk[:-2])
+                    # check vector lengths
+                    len_thick = len(lv.thickness)
+                    len_ang = len(lv.angle)
+                    if len_thick != len_s:
+                        self._warns += 1
+                        print('%s\'s %s thickness size (%s) is unequal to size of s (%s).') % (rk, lk, len_thick, len_s)
+                    if len_ang != len_s:
+                        self._warns += 1
+                        print('%s\'s %s angle size (%s) is unequal to size of s (%s).') % (rk, lk, len_ang, len_s)
+        
+        # check surface regions and webs
+        _check_regions(self.regions)
+        _check_regions(self.webs)
+        
+        if self._warns:
+            print('%s inconsistencies detected!' % self._warns) 
+        else:
+            print('OK.')
+            
 def create_bladestructure(bl):
     """ Creator for BladeStructureVT3D data from a BladeLayup object
 
@@ -411,7 +524,7 @@ def create_bladestructure(bl):
         dpdata.append(v.arc)
     st3d['DPs'] = np.rot90(np.r_[dpdata], 1)
     
-    def create_regions(dictionary):
+    def _create_regions(dictionary):
         ''' create regions list
         
         :param dictionary: bl.regions or bl.webs
@@ -432,8 +545,8 @@ def create_bladestructure(bl):
             regs.append(r)
         return regs
     
-    st3d['regions'] = create_regions(bl.regions)
-    st3d['webs'] = create_regions(bl.webs)
+    st3d['regions'] = _create_regions(bl.regions)
+    st3d['webs'] = _create_regions(bl.webs)
     
     return st3d
         
