@@ -355,7 +355,7 @@ class SplinedBladeStructure(Group):
                         l_index = split[1]
                     except:
                         split = re.match(r"([a-z]+)([a-z]+)", name[3:], re.I).groups()
-                    layername = split[0]
+                    layername = split[0]+split[1]
                     stype = split[-1]
                     # except:
                     #     raise RuntimeError('Variable name %s not understood' % name)
