@@ -31,8 +31,9 @@ class Material(object):
     :param G13: Shear Modules parallel to fiber direction and out of lamina plane
     :param G23: Shear Modules perpendicular to fiber direction and out of lamina plane
     :param rho: Density 
-    :param failcrit: Failure criterion to be used for this material
-        {1:'maximum_strain', 2:'maximum_stress', 3:'tsai_wu'}
+    :param failcrit: Failure criterion to be used for this material ('maximum_strain', 'maximum_stress', 'tsai_wu')
+    :type failcrit: string 
+        
         
     Resistances:
     -----------
