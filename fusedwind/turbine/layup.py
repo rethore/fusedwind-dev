@@ -382,6 +382,7 @@ class BladeLayup(object):
             Example: [[-1, 0], [1, 4]] means 2 webs, web1 uses DP00-1 (clock-wise
             counting) and DP03 (its layup stacking direction is then inwards),
             web2 uses DP01 and DP04
+            The ordering is alway
         :param names: Names of webs (optional), must have the length of nw
         '''
         self.iwebs = iwebs
