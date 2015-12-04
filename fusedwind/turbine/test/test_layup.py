@@ -111,8 +111,12 @@ def configure():
     
     bl.DPs['DP00'].arc = np.ones(4) * -1.
     bl.DPs['DP05'].arc = np.ones(4) * 1.
-    bl.DPs['DP01'].arc = np.ones(4) * -0.5 
+    bl.DPs['DP01'].arc = np.ones(4) * -0.5
+    bl.DPs['DP01'].arc[0] = -0.49
+    bl.DPs['DP01'].arc[-1] = -0.51
     bl.DPs['DP04'].arc = np.ones(4) * 0.5
+    bl.DPs['DP04'].arc[0] = 0.49
+    bl.DPs['DP04'].arc[-1] = 0.51
     bl.DPs['DP02'].arc = np.ones(4) * -0.35 
     bl.DPs['DP03'].arc = np.ones(4) * 0.3
     
