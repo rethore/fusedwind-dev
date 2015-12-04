@@ -379,7 +379,8 @@ class BladeLayup(object):
         :param nw: Number of webs to be initialized
         :type nw: integer
         :param iwebs: List of DP index pairs connecting a web
-            Example: [[2, 3], [1, 4]] means 2 webs, web1 uses DP02 and DP03,
+            Example: [[-1, 0], [1, 4]] means 2 webs, web1 uses DP00-1 (clock-wise
+            counting) and DP03 (its layup stacking direction is then inwards),
             web2 uses DP01 and DP04
         :param names: Names of webs (optional), must have the length of nw
         '''
@@ -524,7 +525,7 @@ def create_bladestructure(bl):
     dpdata = []
     for v in bl.DPs.itervalues():
         dpdata.append(v.arc)
-    st3d['DPs'] = np.rot90(np.r_[dpdata], 1)
+    st3d['DPs'] = np.rot90(np.r_[dpdata], -1)
     
     def _create_regions(dictionary):
         ''' create regions list
