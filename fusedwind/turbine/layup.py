@@ -526,7 +526,7 @@ def create_bladestructure(bl):
     dpdata = []
     for v in bl.DPs.itervalues():
         dpdata.append(v.arc)
-    st3d['DPs'] = np.rot90(np.r_[dpdata], -1)
+    st3d['DPs'] = np.fliplr(np.rot90(np.r_[dpdata], -1))
     
     def _create_regions(dictionary):
         ''' create regions list
