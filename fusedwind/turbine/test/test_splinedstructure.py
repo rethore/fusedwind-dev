@@ -24,8 +24,8 @@ def configure():
     spl.add_spline('DP08', np.linspace(0, 1, 4), spline_type='bezier')
     spl.add_spline('DP09', np.linspace(0, 1, 4), spline_type='bezier')
     spl.add_spline(('DP04', 'DP05'), np.linspace(0, 1, 4), spline_type='bezier')
-    spl.add_spline(('r04uniaxT', 'r04uniax01T'), np.linspace(0, 1, 4), spline_type='bezier')
-    spl.add_spline('w02biaxT', np.linspace(0, 1, 4), spline_type='bezier')
+    spl.add_spline(('r04uniax00T', 'r04uniax01T'), np.linspace(0, 1, 4), spline_type='bezier')
+    spl.add_spline('w02biax00T', np.linspace(0, 1, 4), spline_type='bezier')
     spl.configure()
     p.setup()
     return p
@@ -58,8 +58,8 @@ def configure_with_surface():
 
     spl = p.root.add('st_splines', SplinedBladeStructure(st3dn), promotes=['*'])
     spl.add_spline('DP04', np.linspace(0, 1, 4), spline_type='bezier')
-    spl.add_spline(('r04uniaxT', 'r04uniax01T'), np.linspace(0, 1, 4), spline_type='bezier')
-    spl.add_spline('w02biaxT', np.linspace(0, 1, 4), spline_type='bezier')
+    spl.add_spline(('r04uniax00T', 'r04uniax01T'), np.linspace(0, 1, 4), spline_type='bezier')
+    spl.add_spline('w02biax00T', np.linspace(0, 1, 4), spline_type='bezier')
     spl.configure()
     p.root.add('st_props', BladeStructureProperties((200, nsec, 3), st3dn, [4,5,8,9]), promotes=['*'])
 
@@ -84,14 +84,14 @@ class TestSplinedBladeStructure(unittest.TestCase):
         DP05 = np.array([-0.3638539 , -0.34034888, -0.21823594, -0.1873391 , -0.19636527,
                          -0.21358559, -0.23647097, -0.15612563])
         p = configure()
-        p['r04uniaxT_C'][2] = 0.01
-        p['w02biaxT_C'][2] = 0.01
+        p['r04uniax00T_C'][2] = 0.01
+        p['w02biax00T_C'][2] = 0.01
         p['DP04_C'][1] = 0.1
         p.run()
 
-        self.assertEqual(np.testing.assert_array_almost_equal(p['r04uniaxT'], r04uniax, decimal=6), None)
+        self.assertEqual(np.testing.assert_array_almost_equal(p['r04uniax00T'], r04uniax, decimal=6), None)
         self.assertEqual(np.testing.assert_array_almost_equal(p['r04uniax01T'], r04uniax, decimal=6), None)
-        self.assertEqual(np.testing.assert_array_almost_equal(p['w02biaxT'], w02biax, decimal=6), None)
+        self.assertEqual(np.testing.assert_array_almost_equal(p['w02biax00T'], w02biax, decimal=6), None)
         self.assertEqual(np.testing.assert_array_almost_equal(p['DP04'], DP04, decimal=6), None)
 
     def test_props(self):
