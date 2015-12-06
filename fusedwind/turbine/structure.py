@@ -222,6 +222,7 @@ def interpolate_bladestructure(st3d, s_new):
     st3dn['failmat'] = st3d['failmat']
     st3dn['failcrit'] = st3d['failcrit']
     st3dn['web_def'] = st3d['web_def']
+    st3dn['web_offsets'] = st3d['web_offsets']
     st3dn['regions'] = []
     st3dn['webs'] = []
 
