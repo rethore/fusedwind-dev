@@ -171,7 +171,7 @@ def configure():
     l.thickness = np.array([0.008, 0.003, 0.0015, 0.0011])
     l.angle = np.zeros(4)
     
-    bl.init_webs(2, [[2, 3], [1, 4]])
+    bl.init_webs(2, [[2, 3], [1, 4]], ['top', 'mid'])
     w = bl.webs['web00']
     l = w.add_layer('triax')
     l.thickness = np.array([0.0025, 0.0045, 0.004, 0.001])
@@ -347,7 +347,7 @@ def configure_incorrect():
     l.thickness = np.array([0.008, 0.003, 0.0015, 0.0011])
     l.angle = np.zeros(4)
     
-    bl.init_webs(2, [[2, 3], [1, 4]])
+    bl.init_webs(2, [[2, 3], [1, 4]], ['top', 'mid'])
     w = bl.webs['web00']
     l = w.add_layer('triax')
     l.thickness = np.array([0.0025, 0.0045, 0.004, 0.001])

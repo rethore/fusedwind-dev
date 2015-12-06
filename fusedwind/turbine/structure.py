@@ -59,6 +59,7 @@ def read_bladestructure(filebase):
 
     # read webs
     wnames = dpfid.readline().split()[1:]
+    st3d['web_offsets'] = dpfid.readline().split()[1:]
     iwebs = []
     for w, wname in enumerate(wnames):
         line = dpfid.readline().split()[1:]
@@ -157,6 +158,8 @@ def write_bladestructure(st3d, filebase):
     fid = open(filebase + '.dp3d', 'w')
     webs = ['web%02d' % i for i in range(len(st3d['webs']))]
     fid.write('# %s\n' % ('  '.join(webs)))
+    woffsets = st3d['web_offsets']
+    fid.write('# %s\n' % ('  '.join(woffsets)))
     for web in st3d['web_def']:
         fid.write('# %i %i\n' % (web[0], web[1]))
     DPs = ['DP%02d' % i for i in range(st3d['DPs'].shape[1])]

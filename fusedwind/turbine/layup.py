@@ -350,6 +350,7 @@ class BladeLayup(object):
         self.regions = OrderedDict()
         self.webs = OrderedDict()
         self.iwebs = None
+        self.woffsets = None
         self.DPs = OrderedDict()
         self.materials = OrderedDict()
         
@@ -373,20 +374,25 @@ class BladeLayup(object):
                 name = 'region%02d' % i
             self._add_region(name)
 
-    def init_webs(self, nw, iwebs, names=[]):
+    def init_webs(self, nw, iwebs, woffsets, names=[]):
         ''' Initialize a number of nw webs.
         
         :param nw: Number of webs to be initialized
         :type nw: integer
         :param iwebs: List of DP index pairs connecting a web
-            Example: [[-1, 0], [1, 4]] means 2 webs, web1 uses DP00-1 (clock-wise
+            Example: [[-1, 0], [1, 4]] means 2 webs, web00 uses DP00-1 (clock-wise
             counting) and DP03 (its layup stacking direction is then inwards),
-            web2 uses DP01 and DP04
-            The ordering is alway
+            web01 uses DP01 and DP04
+        :param woffsets: List of web shell offset types
+            Example: ['mid', 'top'] means web00 is modelled as 'mid' offset and
+            web01 is modelled as top offset. The stacking direction depends on the
+            order of the DPs in iwebs.
+            If a web is used to model the trailing edge by standard top offset is used.
         :param names: Names of webs (optional), must have the length of nw
+        
         '''
         self.iwebs = iwebs
-
+        self.woffsets = woffsets
         for i in range(nw):
             try:
                 name = names[i]
@@ -521,6 +527,7 @@ def create_bladestructure(bl):
     st3d['failmat'] =  np.r_[failmat]
     st3d['failcrit'] = failcrit
     st3d['web_def'] = bl.iwebs
+    st3d['web_offsets'] = bl.woffsets
     st3d['s'] = bl.s
     
     dpdata = []
