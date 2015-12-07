@@ -106,6 +106,9 @@ def read_bladestructure(filebase):
         iwebs.append(line)
     st3d['web_def'] = iwebs
     nwebs = len(iwebs)
+    if version == 0:
+        # set default web_offset if not provided
+        st3d['web_offsets'] = ['mid' for _ in range(len(st3d['web_def']))]
     header = dpfid.readline()
     dpdata = np.loadtxt(dpfile)
     nreg = dpdata.shape[1] - 2

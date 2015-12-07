@@ -42,7 +42,6 @@ class StructureTests(unittest.TestCase):
         st3d = read_bladestructure(os.path.join(self.data_version_0, self.blade))
         # convert to version 1
         st3d['version'] = 1
-        st3d['web_offsets'] = ['top' for _ in range(len(st3d['web_def']))]
         write_bladestructure(st3d, os.path.join(self.test_dir, 'test'))
         st3dn = read_bladestructure(os.path.join(self.test_dir, 'test'))
         self.assertEqual(np.testing.assert_array_equal(
