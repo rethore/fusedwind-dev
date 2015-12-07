@@ -1,6 +1,8 @@
 
 
 import unittest
+import os
+import pkg_resources
 import numpy as np
 from openmdao.api import Problem, Group
 
@@ -21,11 +23,11 @@ athick_pchip = np.array([ 0.06229255,  0.06055473,  0.05242633,  0.04247846,  0.
         0.01903185,  0.01837563,  0.01781751,  0.0172574 ,  0.01653171,
         0.01507261,  0.01240316,  0.00927879,  0.00622836,  0.00167426])
 
-
+PATH = pkg_resources.resource_filename('fusedwind', 'turbine/test')
 
 def configure(spline_type):
 
-    pf = read_blade_planform('data/DTU_10MW_RWT_blade_axis_prebend.dat')
+    pf = read_blade_planform(os.path.join(PATH, 'data/DTU_10MW_RWT_blade_axis_prebend.dat'))
     pf = redistribute_planform(pf, s=np.linspace(0, 1, 20))
 
     p = Problem(root=Group())
