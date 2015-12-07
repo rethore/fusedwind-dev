@@ -355,6 +355,8 @@ class BladeLayup(object):
         self.materials = OrderedDict()
         
         self._warns = 0 # counter for inconsistencies
+        
+        self._version = 1 # file version
     
     def init_regions(self, nr, names=[]):
         ''' Initialize a number of nr regions.
@@ -513,6 +515,8 @@ def create_bladestructure(bl):
     
     st3d = {}
     
+    st3d['version'] = bl._version
+    
     st3d['materials'] = {name:i for i, name in enumerate(bl.materials.iterkeys())}
 
     matprops = []
@@ -560,51 +564,3 @@ def create_bladestructure(bl):
     st3d['webs'] = _create_regions(bl.webs)
     
     return st3d
-        
-
-if __name__ == '__main__':
-    
-    mat1 = Material()
-    mat1.set_props(E1 = 1.392E+10,
-                     E2 = 1.392E+10,
-                     E3 = 1.2099E+10,
-                     nu12 = 0.533,
-                     nu13 = 0.275,
-                     nu23 = 0.332899,
-                     G12 = 1.15E+10,
-                     G13 = 4.53864E+09,
-                     G23 = 4.53864E+09,
-                     rho = 1.845E+03)
-    
-    mat1.set_resists_strains(failcrit = 1,
-                             e11_t = 9.52E-03,
-                             e22_t = 1.00E+06,
-                             e33_t = 1.00E+06,
-                             e11_c = 6.80E-03,
-                             e22_c = 1.00E+06,
-                             e33_c = 1.00E+06,
-                             g12 = 1.00E+06,
-                             g13 = 1.00E+06,
-                             g23 = 1.00E+06)
-    
-    mat1.set_safety_GL2010(gM0 = 1.25,
-                           C1a = 1.0,
-                           C2a = 1.0,
-                           C3a = 1.0,
-                           C4a = 1.0)
-    
-    print(mat1.matprops())
-    
-    mat2 = Material()
-    mat2.set_props_uniax(E1 = 4.163000000000000000e+10,
-                         E2 = 1.493000000000000000e+10,
-                         nu12 = 2.409999999999999920e-01,
-                         G12  = 5.047000000000000000e+09,
-                         nu23  = 3.301000000000000045e-01,
-                         rho = 1.9155E+03)
-    print(mat2.matprops())
-    
-    mat3 = Material()
-    mat3.set_props_iso(E1 = 3.00E+09, nu12 = .3800, rho = 1.180E+03)
-    print(mat3.matprops())
-    print(mat1.failmat())
