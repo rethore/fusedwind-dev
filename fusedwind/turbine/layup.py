@@ -31,8 +31,9 @@ class Material(object):
     :param G13: Shear Modules parallel to fiber direction and out of lamina plane
     :param G23: Shear Modules perpendicular to fiber direction and out of lamina plane
     :param rho: Density 
-    :param failcrit: Failure criterion to be used for this material
-        {1:'maximum_strain', 2:'maximum_stress', 3:'tsai_wu'}
+    :param failcrit: Failure criterion to be used for this material ('maximum_strain', 'maximum_stress', 'tsai_wu')
+    :type failcrit: string 
+        
         
     Resistances:
     -----------
@@ -349,10 +350,13 @@ class BladeLayup(object):
         self.regions = OrderedDict()
         self.webs = OrderedDict()
         self.iwebs = None
+        self.woffsets = None
         self.DPs = OrderedDict()
         self.materials = OrderedDict()
         
         self._warns = 0 # counter for inconsistencies
+        
+        self._version = 1 # file version
     
     def init_regions(self, nr, names=[]):
         ''' Initialize a number of nr regions.
@@ -372,18 +376,25 @@ class BladeLayup(object):
                 name = 'region%02d' % i
             self._add_region(name)
 
-    def init_webs(self, nw, iwebs, names=[]):
+    def init_webs(self, nw, iwebs, woffsets, names=[]):
         ''' Initialize a number of nw webs.
         
         :param nw: Number of webs to be initialized
         :type nw: integer
         :param iwebs: List of DP index pairs connecting a web
-            Example: [[2, 3], [1, 4]] means 2 webs, web1 uses DP02 and DP03,
-            web2 uses DP01 and DP04
+            Example: [[-1, 0], [1, 4]] means 2 webs, web00 uses DP00-1 (clock-wise
+            counting) and DP03 (its layup stacking direction is then inwards),
+            web01 uses DP01 and DP04
+        :param woffsets: List of web shell offset types
+            Example: ['mid', 'top'] means web00 is modelled as 'mid' offset and
+            web01 is modelled as top offset. The stacking direction depends on the
+            order of the DPs in iwebs.
+            If a web is used to model the trailing edge by standard top offset is used.
         :param names: Names of webs (optional), must have the length of nw
+        
         '''
         self.iwebs = iwebs
-
+        self.woffsets = woffsets
         for i in range(nw):
             try:
                 name = names[i]
@@ -504,6 +515,8 @@ def create_bladestructure(bl):
     
     st3d = {}
     
+    st3d['version'] = bl._version
+    
     st3d['materials'] = {name:i for i, name in enumerate(bl.materials.iterkeys())}
 
     matprops = []
@@ -518,12 +531,13 @@ def create_bladestructure(bl):
     st3d['failmat'] =  np.r_[failmat]
     st3d['failcrit'] = failcrit
     st3d['web_def'] = bl.iwebs
+    st3d['web_offsets'] = bl.woffsets
     st3d['s'] = bl.s
     
     dpdata = []
     for v in bl.DPs.itervalues():
         dpdata.append(v.arc)
-    st3d['DPs'] = np.rot90(np.r_[dpdata], 1)
+    st3d['DPs'] = np.fliplr(np.rot90(np.r_[dpdata], -1))
     
     def _create_regions(dictionary):
         ''' create regions list
@@ -550,51 +564,3 @@ def create_bladestructure(bl):
     st3d['webs'] = _create_regions(bl.webs)
     
     return st3d
-        
-
-if __name__ == '__main__':
-    
-    mat1 = Material()
-    mat1.set_props(E1 = 1.392E+10,
-                     E2 = 1.392E+10,
-                     E3 = 1.2099E+10,
-                     nu12 = 0.533,
-                     nu13 = 0.275,
-                     nu23 = 0.332899,
-                     G12 = 1.15E+10,
-                     G13 = 4.53864E+09,
-                     G23 = 4.53864E+09,
-                     rho = 1.845E+03)
-    
-    mat1.set_resists_strains(failcrit = 1,
-                             e11_t = 9.52E-03,
-                             e22_t = 1.00E+06,
-                             e33_t = 1.00E+06,
-                             e11_c = 6.80E-03,
-                             e22_c = 1.00E+06,
-                             e33_c = 1.00E+06,
-                             g12 = 1.00E+06,
-                             g13 = 1.00E+06,
-                             g23 = 1.00E+06)
-    
-    mat1.set_safety_GL2010(gM0 = 1.25,
-                           C1a = 1.0,
-                           C2a = 1.0,
-                           C3a = 1.0,
-                           C4a = 1.0)
-    
-    print(mat1.matprops())
-    
-    mat2 = Material()
-    mat2.set_props_uniax(E1 = 4.163000000000000000e+10,
-                         E2 = 1.493000000000000000e+10,
-                         nu12 = 2.409999999999999920e-01,
-                         G12  = 5.047000000000000000e+09,
-                         nu23  = 3.301000000000000045e-01,
-                         rho = 1.9155E+03)
-    print(mat2.matprops())
-    
-    mat3 = Material()
-    mat3.set_props_iso(E1 = 3.00E+09, nu12 = .3800, rho = 1.180E+03)
-    print(mat3.matprops())
-    print(mat1.failmat())

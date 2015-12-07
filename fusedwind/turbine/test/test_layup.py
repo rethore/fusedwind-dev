@@ -4,6 +4,11 @@ import copy
 import unittest
 
 from fusedwind.turbine.layup import BladeLayup, create_bladestructure
+from fusedwind.turbine.structure import write_bladestructure,\
+    read_bladestructure
+import os
+import shutil
+import collections
 
 
 def configure():
@@ -23,7 +28,7 @@ def configure():
                      G23 = 4.539e9,
                      rho = 1845)
     
-    biax.set_resists_strains(failcrit = 1,
+    biax.set_resists_strains(failcrit = 'maximum_strain',
                              e11_t = 9.52E-03,
                              e22_t = 1.00E+06,
                              e33_t = 1.00E+06,
@@ -53,7 +58,7 @@ def configure():
                     rho = 1915.5)
     
     
-    uniax.set_resists_strains(failcrit = 1,
+    uniax.set_resists_strains(failcrit = 'maximum_strain',
                              e11_t = 9.52E-03,
                              e22_t = 1.00E+06,
                              e33_t = 1.00E+06,
@@ -83,7 +88,7 @@ def configure():
                    rho = 110)
 
 
-    core.set_resists_strains(failcrit = 1,
+    core.set_resists_strains(failcrit = 'maximum_strain',
                              e11_t = 9.52E-03,
                              e22_t = 1.00E+06,
                              e33_t = 1.00E+06,
@@ -106,8 +111,12 @@ def configure():
     
     bl.DPs['DP00'].arc = np.ones(4) * -1.
     bl.DPs['DP05'].arc = np.ones(4) * 1.
-    bl.DPs['DP01'].arc = np.ones(4) * -0.5 
+    bl.DPs['DP01'].arc = np.ones(4) * -0.5
+    bl.DPs['DP01'].arc[0] = -0.49
+    bl.DPs['DP01'].arc[-1] = -0.51
     bl.DPs['DP04'].arc = np.ones(4) * 0.5
+    bl.DPs['DP04'].arc[0] = 0.49
+    bl.DPs['DP04'].arc[-1] = 0.51
     bl.DPs['DP02'].arc = np.ones(4) * -0.35 
     bl.DPs['DP03'].arc = np.ones(4) * 0.3
     
@@ -162,7 +171,7 @@ def configure():
     l.thickness = np.array([0.008, 0.003, 0.0015, 0.0011])
     l.angle = np.zeros(4)
     
-    bl.init_webs(2, [[2, 3], [1, 4]])
+    bl.init_webs(2, [[2, 3], [1, 4]], ['top', 'mid'])
     w = bl.webs['web00']
     l = w.add_layer('triax')
     l.thickness = np.array([0.0025, 0.0045, 0.004, 0.001])
@@ -196,7 +205,7 @@ def configure_incorrect():
                      G23 = 4.539e9,
                      rho = 1845)
     
-    biax.set_resists_strains(failcrit = 1,
+    biax.set_resists_strains(failcrit = 'maximum_strain',
                              e11_t = 9.52E-03,
                              e22_t = 1.00E+06,
                              e33_t = 1.00E+06,
@@ -226,7 +235,7 @@ def configure_incorrect():
     uniax.G23 = 5.047e9
     uniax.rho = 1915.5
     
-    uniax.set_resists_strains(failcrit = 1,
+    uniax.set_resists_strains(failcrit = 'maximum_strain',
                              e11_t = 9.52E-03,
                              e22_t = 1.00E+06,
                              e33_t = 1.00E+06,
@@ -256,7 +265,7 @@ def configure_incorrect():
                    G23 = 150e6,
                    rho = 110)
 
-    core.set_resists_strains(failcrit = 1,
+    core.set_resists_strains(failcrit = 'maximum_strain',
                              e11_t = 9.52E-03,
                              e22_t = 1.00E+06,
                              e33_t = 1.00E+06,
@@ -338,7 +347,7 @@ def configure_incorrect():
     l.thickness = np.array([0.008, 0.003, 0.0015, 0.0011])
     l.angle = np.zeros(4)
     
-    bl.init_webs(2, [[2, 3], [1, 4]])
+    bl.init_webs(2, [[2, 3], [1, 4]], ['top', 'mid'])
     w = bl.webs['web00']
     l = w.add_layer('triax')
     l.thickness = np.array([0.0025, 0.0045, 0.004, 0.001])
@@ -363,9 +372,13 @@ class LayupTests(unittest.TestCase):
     '''
     def setUp(self):
         unittest.TestCase.setUp(self)
+        self.test_dir = 'test_dir'
         self.bl, self.uniax = configure()
         self.st3d = create_bladestructure(self.bl)
-        
+    
+    def tearDown(self):
+        unittest.TestCase.tearDown(self)
+    
     def test_check_consistency(self):
         self.assertEqual(self.bl._warns, 0, None)
     
@@ -398,6 +411,33 @@ class LayupTests(unittest.TestCase):
                           uniax.G23,
                           uniax.rho,
                           ]), None)
+        
+    def test_create_write_read_bladestructure(self):
+        if not os.path.exists(self.test_dir):
+            os.makedirs(self.test_dir)
+        write_bladestructure(self.st3d, os.path.join(self.test_dir,'test'))
+        st3dn = read_bladestructure(os.path.join(self.test_dir,'test'))
+        self.assertEqual(np.testing.assert_array_equal(
+                         self.st3d['DPs'][:,4],
+                         st3dn['DPs'][:,4]), None)
+        self.assertEqual(np.testing.assert_array_equal(
+                         self.st3d['regions'][2]['thicknesses'][:,4],
+                         st3dn['regions'][2]['thicknesses'][:,4]), None)
+        uniax = self.uniax
+        self.assertEqual(np.testing.assert_array_equal(
+                         self.st3d['matprops'][1,:],
+                         [uniax.E1,
+                          uniax.E2,
+                          uniax.E3,
+                          uniax.nu12,
+                          uniax.nu13,
+                          uniax.nu23,
+                          uniax.G12,
+                          uniax.G13,
+                          uniax.G23,
+                          uniax.rho,
+                          ]), None)
+        shutil.rmtree(self.test_dir)
         
 if __name__ == '__main__':
     #configure()

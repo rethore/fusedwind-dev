@@ -35,11 +35,41 @@ def read_bladestructure(filebase):
         definition of the blade structure
     """
 
+    def _check_file_version(st3d, headerline):
+        ''' Checks the version string of the first line in file
+        
+        :param st3d: The dictionary beeing filled
+        :param headerline: First line if the file.
+        :return: version int, i.e. 1 for a header with '# version 1'
+        '''
+        
+        if 'version' in [char for char in headerline]:
+            # we have a file that is in version numbering
+            version = int(headerline[1])
+            # check for files consistency
+            if version != st3d['version'] and st3d['version'] is not None:
+                print('Warning: Files not all consistent in version %s!' % version)
+            
+            st3d['version'] = version
+        else:
+            version = 0
+            # check for files consistency
+            if version != st3d['version'] and st3d['version'] is not None:
+                print('Warning: Files not all consistent in version %s!' % version)
+            
+            st3d['version'] = version # version 0 for files before file version tagging
+        return version
+    
     st3d = {}
-
+    st3d['version'] = None
     # read mat file
     fid = open(filebase + '.mat', 'r')
-    materials = fid.readline().split()[1:]
+    first_line = fid.readline().split()[1:]
+    version = _check_file_version(st3d, first_line)
+    if version == 0:
+        materials = first_line
+    if version == 1:
+        materials = fid.readline().split()[1:]
     st3d['materials'] = {name:i for i, name in enumerate(materials)}
     data = np.loadtxt(fid)
     st3d['matprops'] = data
@@ -47,7 +77,12 @@ def read_bladestructure(filebase):
     # read failmat file
     failcrit = {1:'maximum_strain', 2:'maximum_stress', 3:'tsai_wu'}
     fid = open(filebase + '.failmat', 'r')
-    materials = fid.readline().split()[1:]
+    first_line = fid.readline().split()[1:]
+    version = _check_file_version(st3d, first_line)
+    if version == 0:
+        materials = first_line
+    if version == 1:
+        materials = fid.readline().split()[1:]
     data = np.loadtxt(fid)
     st3d['failmat'] = data[:, 1:]
     st3d['failcrit'] = [failcrit[mat] for mat in data[:, 0]]
@@ -56,9 +91,14 @@ def read_bladestructure(filebase):
     dpfile = filebase + '.dp3d'
 
     dpfid = open(dpfile, 'r')
-
+    first_line = dpfid.readline().split()[1:]
+    version = _check_file_version(st3d, first_line)
     # read webs
-    wnames = dpfid.readline().split()[1:]
+    if version == 0:
+        wnames = first_line
+    if version == 1:
+        wnames = dpfid.readline().split()[1:]
+        st3d['web_offsets'] = dpfid.readline().split()[1:]
     iwebs = []
     for w, wname in enumerate(wnames):
         line = dpfid.readline().split()[1:]
@@ -66,6 +106,9 @@ def read_bladestructure(filebase):
         iwebs.append(line)
     st3d['web_def'] = iwebs
     nwebs = len(iwebs)
+    if version == 0:
+        # set default web_offset if not provided
+        st3d['web_offsets'] = ['mid' for _ in range(len(st3d['web_def']))]
     header = dpfid.readline()
     dpdata = np.loadtxt(dpfile)
     nreg = dpdata.shape[1] - 2
@@ -83,7 +126,12 @@ def read_bladestructure(filebase):
         r = {}
         layup_file = '_'.join([filebase, rname]) + '.st3d'
         fid = open(layup_file, 'r')
-        rrname = fid.readline().split()[1]
+        first_line = fid.readline().split()[1:]
+        version = _check_file_version(st3d, first_line)
+        if version == 0:
+            rrname = first_line
+        if version == 1:
+            rrname = fid.readline().split()[1]
         lheader = fid.readline().split()[1:]
 
         cldata = np.loadtxt(fid)
@@ -103,7 +151,12 @@ def read_bladestructure(filebase):
         r = {}
         layup_file = '_'.join([filebase, rname]) + '.st3d'
         fid = open(layup_file, 'r')
-        rrname = fid.readline().split()[1]
+        first_line = fid.readline().split()[1:]
+        version = _check_file_version(st3d, first_line)
+        if version == 0:
+            rrname = first_line
+        if version == 1:
+            rrname = fid.readline().split()[1]
         lheader = fid.readline().split()[1:]
 
         cldata = np.loadtxt(fid)
@@ -136,6 +189,7 @@ def write_bladestructure(st3d, filebase):
 
     # write material properties
     fid = open(filebase + '.mat', 'w')
+    fid.write('# version %s\n' % st3d['version'])
     fid.write('# %s\n' % (' '.join(st3d['materials'].keys())))
     fid.write('# E1 E2 E3 nu12 nu13 nu23 G12 G13 G23 rho\n')
     fmt = ' '.join(10*['%.20e'])
@@ -143,6 +197,7 @@ def write_bladestructure(st3d, filebase):
 
     failcrit = dict(maximum_strain=1, maximum_stress=2, tsai_wu=3)
     fid = open(filebase + '.failmat', 'w')
+    fid.write('# version %s\n' % st3d['version'])
     fid.write('# %s\n' % (' '.join(st3d['materials'])))
     fid.write('# failcrit s11_t s22_t s33_t s11_c s22_c s33_c'
               't12 t13 t23 e11_t e22_t e33_t e11_c e22_c e33_c g12 g13 g23'
@@ -155,8 +210,11 @@ def write_bladestructure(st3d, filebase):
 
     # write dp3d file with region division points
     fid = open(filebase + '.dp3d', 'w')
+    fid.write('# version %s\n' % st3d['version'])
     webs = ['web%02d' % i for i in range(len(st3d['webs']))]
     fid.write('# %s\n' % ('  '.join(webs)))
+    woffsets = st3d['web_offsets']
+    fid.write('# %s\n' % ('  '.join(woffsets)))
     for web in st3d['web_def']:
         fid.write('# %i %i\n' % (web[0], web[1]))
     DPs = ['DP%02d' % i for i in range(st3d['DPs'].shape[1])]
@@ -171,6 +229,7 @@ def write_bladestructure(st3d, filebase):
         rname = 'region%02d' % i
         fname = '_'.join([filebase, rname]) + '.st3d'
         fid = open(fname, 'w')
+        fid.write('# version %s\n' % st3d['version'])
         lnames = '    '.join(reg['layers'])
         fid.write('# %s\n' % rname)
         fid.write('# s    %s\n' % lnames)
@@ -183,6 +242,7 @@ def write_bladestructure(st3d, filebase):
         rname = 'web%02d' % i
         fname = '_'.join([filebase, rname]) + '.st3d'
         fid = open(fname, 'w')
+        fid.write('# version %s\n' % st3d['version'])
         lnames = '    '.join(reg['layers'])
         fid.write('# %s\n' % rname)
         fid.write('# s    %s\n' % lnames)
@@ -214,11 +274,13 @@ def interpolate_bladestructure(st3d, s_new):
     st3dn = {}
     sorg = st3d['s']
     st3dn['s'] = s_new
+    st3dn['version'] = st3d['version']
     st3dn['materials'] = st3d['materials']
     st3dn['matprops'] = st3d['matprops']
     st3dn['failmat'] = st3d['failmat']
     st3dn['failcrit'] = st3d['failcrit']
     st3dn['web_def'] = st3d['web_def']
+    st3dn['web_offsets'] = st3d['web_offsets']
     st3dn['regions'] = []
     st3dn['webs'] = []
 
@@ -355,7 +417,7 @@ class SplinedBladeStructure(Group):
                         l_index = split[1]
                     except:
                         split = re.match(r"([a-z]+)([a-z]+)", name[3:], re.I).groups()
-                    layername = split[0]
+                    layername = split[0]+split[1]
                     stype = split[-1]
                     # except:
                     #     raise RuntimeError('Variable name %s not understood' % name)
