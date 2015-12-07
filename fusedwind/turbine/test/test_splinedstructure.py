@@ -1,6 +1,8 @@
 
 import unittest
 import numpy as np
+import os
+import pkg_resources
 
 from openmdao.api import Group, Problem
 
@@ -13,11 +15,12 @@ from fusedwind.turbine.geometry import read_blade_planform,\
                                        PGLLoftedBladeSurface,\
                                        PGLRedistributedPlanform
 
+PATH = pkg_resources.resource_filename('fusedwind', 'turbine/test')
+
 def configure():
 
-    st3d = read_bladestructure('data/DTU10MW')
+    st3d = read_bladestructure(os.path.join(PATH, 'data/DTU10MW'))
     st3dn = interpolate_bladestructure(st3d, np.linspace(0, 1, 8))
-
 
     p = Problem(root=Group())
     spl = p.root.add('st_splines', SplinedBladeStructure(st3dn), promotes=['*'])
@@ -33,12 +36,12 @@ def configure():
 def configure_with_surface():
 
     nsec = 8
-    st3d = read_bladestructure('data/DTU10MW')
+    st3d = read_bladestructure(os.path.join(PATH, 'data/DTU10MW'))
     st3dn = interpolate_bladestructure(st3d, np.linspace(0, 1, nsec))
 
     p = Problem(root=Group())
 
-    pf = read_blade_planform('data/DTU_10MW_RWT_blade_axis_prebend.dat')
+    pf = read_blade_planform(os.path.join(PATH, 'data/DTU_10MW_RWT_blade_axis_prebend.dat'))
     s_new = np.linspace(0, 1, nsec)
     pf = redistribute_planform(pf, s=s_new)
 
@@ -46,10 +49,10 @@ def configure_with_surface():
     cfg['redistribute_flag'] = False
     cfg['blend_var'] = np.array([0.241, 0.301, 0.36, 1.0])
     afs = []
-    for f in ['data/ffaw3241.dat',
-              'data/ffaw3301.dat',
-              'data/ffaw3360.dat',
-              'data/cylinder.dat']:
+    for f in [os.path.join(PATH, 'data/ffaw3241.dat'),
+              os.path.join(PATH, 'data/ffaw3301.dat'),
+              os.path.join(PATH, 'data/ffaw3360.dat'),
+              os.path.join(PATH, 'data/cylinder.dat')]:
 
         afs.append(np.loadtxt(f))
     cfg['base_airfoils'] = afs

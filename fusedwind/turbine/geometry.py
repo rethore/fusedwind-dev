@@ -475,7 +475,7 @@ class ScaleChord(Component):
     def __init__(self, size, suffix=''):
         super(ScaleChord, self).__init__()
 
-        self.add_param('blade_scale', 0.)
+        self.add_param('blade_scale', 1.)
         self.add_param('chord_in', np.zeros(size))
         self.add_output('chord' + suffix, np.zeros(size))
         self._suffix = suffix
