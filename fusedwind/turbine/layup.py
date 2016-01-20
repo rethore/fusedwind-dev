@@ -547,8 +547,8 @@ def create_bladestructure(bl):
                 r['layers'].append(k)
                 thdata.append(v.thickness)
                 andata.append(v.angle)
-            r['thicknesses'] = np.rot90(np.r_[thdata], -1)
-            r['angles'] = np.rot90(np.r_[andata], 1)
+            r['thicknesses'] = np.fliplr(np.rot90(np.r_[thdata], -1))
+            r['angles'] = np.fliplr(np.rot90(np.r_[andata], 1))
             regs.append(r)
         return regs
     
