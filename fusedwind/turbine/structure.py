@@ -615,7 +615,6 @@ class BladeStructureProperties(Component):
         smax = np.zeros(self.nsec)
         for i in range(self.nsec):
             x = params['blade_surface_st'][:, i, :]
-            x[:, 2] *= params['blade_length']
             af = AirfoilShape(points=x)
             smax[i] = af.smax
             for j in range(self.nDP):
