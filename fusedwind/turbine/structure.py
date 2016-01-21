@@ -37,29 +37,29 @@ def read_bladestructure(filebase):
 
     def _check_file_version(st3d, headerline):
         ''' Checks the version string of the first line in file
-        
+
         :param st3d: The dictionary beeing filled
         :param headerline: First line if the file.
         :return: version int, i.e. 1 for a header with '# version 1'
         '''
-        
+
         if 'version' in [char for char in headerline]:
             # we have a file that is in version numbering
             version = int(headerline[1])
             # check for files consistency
             if version != st3d['version'] and st3d['version'] is not None:
                 print('Warning: Files not all consistent in version %s!' % version)
-            
+
             st3d['version'] = version
         else:
             version = 0
             # check for files consistency
             if version != st3d['version'] and st3d['version'] is not None:
                 print('Warning: Files not all consistent in version %s!' % version)
-            
+
             st3d['version'] = version # version 0 for files before file version tagging
         return version
-    
+
     st3d = {}
     st3d['version'] = None
     # read mat file
@@ -651,4 +651,4 @@ class BladeStructureProperties(Component):
             t = unknowns['r%02d_thickness' % i]
             t[:] = 0.
             for lname in reg:
-                t += params[lname + 'T']
+                t += np.maximum(0., params[lname + 'T'])
