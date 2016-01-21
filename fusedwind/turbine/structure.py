@@ -134,22 +134,27 @@ def read_bladestructure(filebase):
         layers = lheader[1:]
         nl = len(layers)
 
-        # check that layer names are of the type <%s><%02d>
-        lnames = []
-        basenames = []
-        for name in layers:
-            try:
-                split = re.match(r"([a-z]+)([0-9]+)", name, re.I).groups()
-                idx = basenames.count(split[0])
-                basenames.append(split[0])
-                lnames.append(split[0] + '%02d' % idx)
-            except:
-                split = re.match(r"([a-z]+)", name, re.I).groups()
-                idx = basenames.count(split[0])
-                basenames.append(split[0])
-                lnames.append(split[0] + '%02d' % idx)
+        if version==0:
+            # check that layer names are of the type <%s><%02d>
+            lnames = []
+            basenames = []
+            for name in layers:
+                try:
+                    # numbers in names should be allowed
+                    split = re.match(r"([a-z]+)([0-9]+)", name, re.I).groups()
+                    idx = basenames.count(split[0])
+                    basenames.append(split[0])
+                    lnames.append(split[0] + '%02d' % idx)
+                except:
+                    split = re.match(r"([a-z]+)", name, re.I).groups()
+                    idx = basenames.count(split[0])
+                    basenames.append(split[0])
+                    lnames.append(split[0] + '%02d' % idx)
+            r['layers'] = lnames
 
-        r['layers'] = lnames
+        if version == 1:
+            r['layers'] = layers
+
         r['thicknesses'] = cldata[:, 1:nl + 1]
         if cldata.shape[1] == nl*2 + 1:
             r['angles'] = cldata[:, nl + 1:2*nl+1 + 2]
@@ -174,22 +179,27 @@ def read_bladestructure(filebase):
         layers = lheader[1:]
         nl = len(layers)
 
-        # check that layer names are of the type <%s><%02d>
-        lnames = []
-        basenames = []
-        for name in layers:
-            try:
-                split = re.match(r"([a-z]+)([0-9]+)", name, re.I).groups()
-                idx = basenames.count(split[0])
-                basenames.append(split[0])
-                lnames.append(split[0] + '%02d' % idx)
-            except:
-                split = re.match(r"([a-z]+)", name, re.I).groups()
-                idx = basenames.count(split[0])
-                basenames.append(split[0])
-                lnames.append(split[0] + '%02d' % idx)
+        if version==0:
+            # check that layer names are of the type <%s><%02d>
+            lnames = []
+            basenames = []
+            for name in layers:
+                try:
+                    # numbers in names should be allowed
+                    split = re.match(r"([a-z]+)([0-9]+)", name, re.I).groups()
+                    idx = basenames.count(split[0])
+                    basenames.append(split[0])
+                    lnames.append(split[0] + '%02d' % idx)
+                except:
+                    split = re.match(r"([a-z]+)", name, re.I).groups()
+                    idx = basenames.count(split[0])
+                    basenames.append(split[0])
+                    lnames.append(split[0] + '%02d' % idx)
+            r['layers'] = lnames
 
-        r['layers'] = lnames
+        if version == 1:
+            r['layers'] = layers
+        
         r['thicknesses'] = cldata[:, 1:nl + 1]
         if cldata.shape[1] == nl*2 + 1:
             r['angles'] = cldata[:, nl + 1:2*nl+1 + 2]
