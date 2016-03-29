@@ -384,6 +384,9 @@ def interpolate_bladestructure(st3d, s_new):
     st3dn['web_def'] = st3d['web_def']
     st3dn['regions'] = []
     st3dn['webs'] = []
+    if 'bonds' in st3d:
+        st3dn['bonds'] = []
+        st3dn['bond_def'] = st3d['bond_def']
 
     DPs = np.zeros((s_new.shape[0], st3d['DPs'].shape[1]))
     for i in range(st3d['DPs'].shape[1]):
@@ -526,7 +529,7 @@ class SplinedBladeStructure(Group):
             tvars = []
 
             for name in names:
-                if name.startswith('r') or name.startswith('w'):
+                if name.startswith('r') or name.startswith('w') or name.startswith('b'):
                     l_index = None
                     # try:
                     ireg = int(name[1:3])
@@ -548,6 +551,9 @@ class SplinedBladeStructure(Group):
                 elif name.startswith('w'):
                     r = st3d['webs'][ireg]
                     rname = 'w%02d' % ireg
+                elif name.startswith('b'):
+                    r = st3d['bonds'][ireg]
+                    rname = 'b%02d' % ireg
 
                 varname = '%s%s%s' % (rname, layername, stype)
                 ilayer = r['layers'].index(layername)
@@ -594,6 +600,14 @@ class SplinedBladeStructure(Group):
                     self.add(varname + 'T_c', IndepVarComp(varname + 'T', reg['thicknesses'][:, i]), promotes=['*'])
                 if varname+'A' not in self._vars:
                     self.add(varname + 'A_c', IndepVarComp(varname + 'A', reg['angles'][:, i]), promotes=['*'])
+        if 'bonds' in st3d:
+            for ireg, reg in enumerate(st3d['bonds']):
+                for i, lname in enumerate(reg['layers']):
+                    varname = 'b%02d%s' % (ireg, lname)
+                    if varname+'T' not in self._vars:
+                        self.add(varname + 'T_c', IndepVarComp(varname + 'T', reg['thicknesses'][:, i]), promotes=['*'])
+                    if varname+'A' not in self._vars:
+                        self.add(varname + 'A_c', IndepVarComp(varname + 'A', reg['angles'][:, i]), promotes=['*'])
 
 
 class BladeStructureProperties(Component):
