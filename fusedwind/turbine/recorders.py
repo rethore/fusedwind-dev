@@ -155,12 +155,14 @@ def get_planform_recording_vars(suffix='', with_CPs=False):
         pf_vars = [name + suffix for name in names]
     else:
         pf_vars = names
+    curv_vars = [name + '_curv' for name in pf_vars]
 
     cp_vars = []
     if with_CPs:
         cp_vars = [name + '_C' for name in names]
 
     recording_vars.extend(pf_vars)
+    recording_vars.extend(curv_vars)
     recording_vars.extend(cp_vars)
 
     return recording_vars
