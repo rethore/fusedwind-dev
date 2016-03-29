@@ -657,7 +657,7 @@ class BladeStructureProperties(Component):
         self.capDPs = capDPs
         self.capDPs.sort()
 
-        self.add_param('blade_length', 1., units='m', desc='blade length')
+        self.add_param('blade_length', 1., desc='blade length')
         self.add_param('blade_surface_st', np.zeros(sdim))
         for i in range(self.nDP):
             self.add_param('DP%02d' % i, DPs[:, i])
