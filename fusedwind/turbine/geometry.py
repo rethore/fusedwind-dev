@@ -590,7 +590,7 @@ class SplinedBladePlanform(Group):
                                                 s=self.pfinit['s'],
                                                 P=self.pfinit['chord'],
                                                 Cx=Cx, scaler=scaler),
-                                                promotes=['chord_C'])
+                                                promotes=['chord_C', 'chord_curv'])
             c.spline_options['spline_type'] = spline_type
             self.add('chord_scaler', ScaleChord(self._size), promotes=['blade_scale', 'chord'])
             self.connect('chord_s.chord', 'chord_scaler.chord_in')
@@ -601,7 +601,7 @@ class SplinedBladePlanform(Group):
                                                 s=self.pfinit['s'],
                                                 P=self.pfinit[name],
                                                 Cx=Cx, scaler=scaler),
-                                                promotes=[name, name + '_C'])
+                                                promotes=[name, name + '_C', name + '_curv'])
             c.spline_options['spline_type'] = spline_type
 
     def configure(self):
