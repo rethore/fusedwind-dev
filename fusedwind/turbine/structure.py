@@ -59,6 +59,16 @@ def read_bladestructure(filebase):
 
             st3d['version'] = version # version 0 for files before file version tagging
         return version
+    
+    def _check_bondline(headerline):
+        ''' Checks the version string of the first line in file
+        :param headerline: Second line if the file.
+        :return: boolean if bondline exists in file set'
+        '''
+        if 'bond00' in [char for char in headerline]:
+            return True
+        else:
+            return False
 
     st3d = {}
     st3d['version'] = None
@@ -68,7 +78,7 @@ def read_bladestructure(filebase):
     version = _check_file_version(st3d, first_line)
     if version == 0:
         materials = first_line
-    if version == 1:
+    if version >= 1:
         materials = fid.readline().split()[1:]
     st3d['materials'] = {name:i for i, name in enumerate(materials)}
     data = np.loadtxt(fid)
@@ -81,7 +91,7 @@ def read_bladestructure(filebase):
     version = _check_file_version(st3d, first_line)
     if version == 0:
         materials = first_line
-    if version == 1:
+    if version >= 1:
         materials = fid.readline().split()[1:]
     data = np.loadtxt(fid)
     st3d['failmat'] = data[:, 1:]
@@ -93,11 +103,26 @@ def read_bladestructure(filebase):
     dpfid = open(dpfile, 'r')
     first_line = dpfid.readline().split()[1:]
     version = _check_file_version(st3d, first_line)
-    # read webs
+    
+    # read webs and bonds
     if version == 0:
         wnames = first_line
-    if version == 1:
-        wnames = dpfid.readline().split()[1:]
+        bondline = False
+    if version >= 1:
+        second_line = dpfid.readline().split()[1:]
+        bondline = _check_bondline(second_line)
+        if bondline:
+            bnames = second_line
+            ibonds = []
+            for b, bname in enumerate(bnames):
+                line = dpfid.readline().split()[1:]
+                line = [int(entry) for entry in line]
+                ibonds.append(line)
+            st3d['bond_def'] = ibonds
+            nbonds = len(ibonds)
+            wnames = dpfid.readline().split()[1:]
+        else:
+            wnames = second_line
     iwebs = []
     for w, wname in enumerate(wnames):
         line = dpfid.readline().split()[1:]
@@ -126,7 +151,7 @@ def read_bladestructure(filebase):
         version = _check_file_version(st3d, first_line)
         if version == 0:
             rrname = first_line
-        if version == 1:
+        if version >= 1:
             rrname = fid.readline().split()[1]
         lheader = fid.readline().split()[1:]
 
@@ -152,7 +177,7 @@ def read_bladestructure(filebase):
                     lnames.append(split[0] + '%02d' % idx)
             r['layers'] = lnames
 
-        if version == 1:
+        if version >= 1:
             r['layers'] = layers
 
         r['thicknesses'] = cldata[:, 1:nl + 1]
@@ -171,7 +196,7 @@ def read_bladestructure(filebase):
         version = _check_file_version(st3d, first_line)
         if version == 0:
             rrname = first_line
-        if version == 1:
+        if version >= 1:
             rrname = fid.readline().split()[1]
         lheader = fid.readline().split()[1:]
 
@@ -179,7 +204,7 @@ def read_bladestructure(filebase):
         layers = lheader[1:]
         nl = len(layers)
 
-        if version==0:
+        if version == 0:
             # check that layer names are of the type <%s><%02d>
             lnames = []
             basenames = []
@@ -197,7 +222,7 @@ def read_bladestructure(filebase):
                     lnames.append(split[0] + '%02d' % idx)
             r['layers'] = lnames
 
-        if version == 1:
+        if version >= 1:
             r['layers'] = layers
         
         r['thicknesses'] = cldata[:, 1:nl + 1]
@@ -207,6 +232,30 @@ def read_bladestructure(filebase):
             r['angles'] = np.zeros((cldata.shape[0], nl))
         st3d['webs'].append(r)
 
+    if bondline:
+        st3d['bonds'] = []
+        for i, rname in enumerate(bnames):
+            r = {}
+            layup_file = '_'.join([filebase, rname]) + '.st3d'
+            fid = open(layup_file, 'r')
+            first_line = fid.readline().split()[1:]
+            #version = _check_file_version(st3d, first_line)
+            rrname = fid.readline().split()[1]
+            lheader = fid.readline().split()[1:]
+    
+            cldata = np.loadtxt(fid)
+            layers = lheader[1:]
+            nl = len(layers)
+    
+            r['layers'] = layers
+            
+            r['thicknesses'] = cldata[:, 1:nl + 1]
+            if cldata.shape[1] == nl*2 + 1:
+                r['angles'] = cldata[:, nl + 1:2*nl+1 + 2]
+            else:
+                r['angles'] = np.zeros((cldata.shape[0], nl))
+            st3d['bonds'].append(r)
+        
     return st3d
 
 
@@ -247,6 +296,11 @@ def write_bladestructure(st3d, filebase):
     # write dp3d file with region division points
     fid = open(filebase + '.dp3d', 'w')
     fid.write('# version %s\n' % st3d['version'])
+    if 'bonds' in st3d:
+        bonds = ['bond%02d' % i for i in range(len(st3d['bonds']))]
+        fid.write('# %s\n' % ('  '.join(bonds)))
+        for bond in st3d['bond_def']:
+            fid.write('# %i %i %i %i\n' % (bond[0], bond[1], bond[2], bond[3]))
     webs = ['web%02d' % i for i in range(len(st3d['webs']))]
     fid.write('# %s\n' % ('  '.join(webs)))
     for web in st3d['web_def']:
@@ -285,6 +339,20 @@ def write_bladestructure(st3d, filebase):
         data = np.append(data, reg['angles'], axis=1)
         np.savetxt(fid, data)
         fid.close()
+    if 'bonds' in st3d:
+        for i, reg in enumerate(st3d['bonds']):
+            rname = 'bond%02d' % i
+            fname = '_'.join([filebase, rname]) + '.st3d'
+            fid = open(fname, 'w')
+            fid.write('# version %s\n' % st3d['version'])
+            lnames = '    '.join(reg['layers'])
+            fid.write('# %s\n' % rname)
+            fid.write('# s    %s\n' % lnames)
+            data = np.array([st3d['s']]).T
+            data = np.append(data, reg['thicknesses'], axis=1)
+            data = np.append(data, reg['angles'], axis=1)
+            np.savetxt(fid, data)
+            fid.close()
 
 
 def interpolate_bladestructure(st3d, s_new):
@@ -316,6 +384,9 @@ def interpolate_bladestructure(st3d, s_new):
     st3dn['web_def'] = st3d['web_def']
     st3dn['regions'] = []
     st3dn['webs'] = []
+    if 'bonds' in st3d:
+        st3dn['bonds'] = []
+        st3dn['bond_def'] = st3d['bond_def']
 
     DPs = np.zeros((s_new.shape[0], st3d['DPs'].shape[1]))
     for i in range(st3d['DPs'].shape[1]):
@@ -353,6 +424,23 @@ def interpolate_bladestructure(st3d, s_new):
         rnew['thicknesses'] = tnew.copy()
         rnew['angles'] = anew.copy()
         st3dn['webs'].append(rnew)
+    if 'bonds' in st3d:
+        for r in st3d['bonds']:
+            rnew = {}
+            rnew['layers'] = r['layers']
+            Ts = r['thicknesses']
+            As = r['angles']
+            tnew = np.zeros((s_new.shape[0], Ts.shape[1]))
+            anew = np.zeros((s_new.shape[0], As.shape[1]))
+            for i in range(Ts.shape[1]):
+                tck = pchip(sorg, Ts[:, i])
+                tnew[:, i] = tck(s_new)
+                tck = pchip(sorg, As[:, i])
+                anew[:, i] = tck(s_new)
+            rnew['thicknesses'] = tnew.copy()
+            rnew['angles'] = anew.copy()
+            st3dn['bonds'].append(rnew)
+        
 
     return st3dn
 
@@ -441,7 +529,7 @@ class SplinedBladeStructure(Group):
             tvars = []
 
             for name in names:
-                if name.startswith('r') or name.startswith('w'):
+                if name.startswith('r') or name.startswith('w') or name.startswith('b'):
                     l_index = None
                     # try:
                     ireg = int(name[1:3])
@@ -463,6 +551,9 @@ class SplinedBladeStructure(Group):
                 elif name.startswith('w'):
                     r = st3d['webs'][ireg]
                     rname = 'w%02d' % ireg
+                elif name.startswith('b'):
+                    r = st3d['bonds'][ireg]
+                    rname = 'b%02d' % ireg
 
                 varname = '%s%s%s' % (rname, layername, stype)
                 ilayer = r['layers'].index(layername)
@@ -509,6 +600,14 @@ class SplinedBladeStructure(Group):
                     self.add(varname + 'T_c', IndepVarComp(varname + 'T', reg['thicknesses'][:, i]), promotes=['*'])
                 if varname+'A' not in self._vars:
                     self.add(varname + 'A_c', IndepVarComp(varname + 'A', reg['angles'][:, i]), promotes=['*'])
+        if 'bonds' in st3d:
+            for ireg, reg in enumerate(st3d['bonds']):
+                for i, lname in enumerate(reg['layers']):
+                    varname = 'b%02d%s' % (ireg, lname)
+                    if varname+'T' not in self._vars:
+                        self.add(varname + 'T_c', IndepVarComp(varname + 'T', reg['thicknesses'][:, i]), promotes=['*'])
+                    if varname+'A' not in self._vars:
+                        self.add(varname + 'A_c', IndepVarComp(varname + 'A', reg['angles'][:, i]), promotes=['*'])
 
 
 class BladeStructureProperties(Component):
@@ -572,7 +671,7 @@ class BladeStructureProperties(Component):
         self.capDPs = capDPs
         self.capDPs.sort()
 
-        self.add_param('blade_length', 1., units='m', desc='blade length')
+        self.add_param('blade_length', 1., desc='blade length')
         self.add_param('blade_surface_st', np.zeros(sdim))
         for i in range(self.nDP):
             self.add_param('DP%02d' % i, DPs[:, i])

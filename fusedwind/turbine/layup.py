@@ -355,7 +355,7 @@ class BladeLayup(object):
         
         self._warns = 0 # counter for inconsistencies
         
-        self._version = 1 # file version
+        self._version = 2 # file version
     
     def init_regions(self, nr, names=[]):
         ''' Initialize a number of nr regions.
@@ -394,6 +394,26 @@ class BladeLayup(object):
             except:
                 name = 'web%02d' % i
             self._add_web(name)
+            
+    def init_bonds(self, nb, ibonds, names=[]):
+        ''' Initialize a number of nb bondlines.
+        
+        :param nb: Number of webs to be initialized
+        :type nb: integer
+        :param ibonds: List of DP index quads connecting a web
+            Example: [[0, 1, -2, -1]] 
+        :param names: Names of bonds (optional), must have the length of nb
+        
+        '''
+        self.bonds = OrderedDict()
+        #self.ibonds = None
+        self.ibonds = ibonds
+        for i in range(nb):
+            try:
+                name = names[i]
+            except:
+                name = 'bond%02d' % i
+            self._add_bond(name)
 
     def _add_region(self, name):
         ''' Adds region to the blade
@@ -407,6 +427,13 @@ class BladeLayup(object):
         '''
         region = Region()
         self.webs[name] = region
+        return region
+    
+    def _add_bond(self, name):
+        ''' Adds bondline to the blade
+        '''
+        region = Region()
+        self.bonds[name] = region
         return region
     
     def add_material(self, name):
@@ -459,7 +486,7 @@ class BladeLayup(object):
         def _check_regions(dictionary):
             ''' Check regions' consistency.
             
-            :param dictionary: self.regions or self.webs
+            :param dictionary: self.regions or self.webs or self.bonds
             '''
             for rk, rv in dictionary.iteritems():
                 # check dictionary attributes
@@ -492,6 +519,8 @@ class BladeLayup(object):
         # check surface regions and webs
         _check_regions(self.regions)
         _check_regions(self.webs)
+        if hasattr(self, 'bonds'):
+            _check_regions(self.bonds)
         
         if self._warns:
             print('%s inconsistencies detected!' % self._warns) 
@@ -524,6 +553,8 @@ def create_bladestructure(bl):
     st3d['failmat'] =  np.r_[failmat]
     st3d['failcrit'] = failcrit
     st3d['web_def'] = bl.iwebs
+    if hasattr(bl, 'bonds'):
+        st3d['bond_def'] = bl.ibonds
     st3d['s'] = bl.s
     
     dpdata = []
@@ -534,7 +565,7 @@ def create_bladestructure(bl):
     def _create_regions(dictionary):
         ''' create regions list
         
-        :param dictionary: bl.regions or bl.webs
+        :param dictionary: bl.regions or bl.webs or bl.bonds
         :return: List of regions
         '''
         regs = []
@@ -554,5 +585,7 @@ def create_bladestructure(bl):
     
     st3d['regions'] = _create_regions(bl.regions)
     st3d['webs'] = _create_regions(bl.webs)
+    if hasattr(bl, 'bonds'):
+        st3d['bonds'] = _create_regions(bl.bonds)
     
     return st3d

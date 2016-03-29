@@ -8,7 +8,6 @@ from fusedwind.turbine.structure import write_bladestructure,\
     read_bladestructure
 import os
 import shutil
-import collections
 
 
 def configure():
@@ -282,6 +281,35 @@ def configure_incorrect():
                            C3a = 1.0,
                            C4a = 1.0)
     
+    adhesive = bl.add_material('adhesive')
+    adhesive.set_props(E1 = 50e6,
+                   E2 = 50e6,
+                   E3 = 50e6,
+                   nu12 = 0.5,
+                   nu13 = 0.013,
+                   nu23 = 0.013,
+                   G12 = 16.67e6,
+                   G13 = 150e6,
+                   G23 = 150e6,
+                   rho = 110)
+
+    adhesive.set_resists_strains(failcrit = 'maximum_strain',
+                             e11_t = 9.52E-03,
+                             e22_t = 1.00E+06,
+                             e33_t = 1.00E+06,
+                             e11_c = 6.80E-03,
+                             e22_c = 1.00E+06,
+                             e33_c = 1.00E+06,
+                             g12 = 1.00E+06,
+                             g13 = 1.00E+06,
+                             g23 = 1.00E+06)
+    
+    adhesive.set_safety_GL2010(gM0 = 1.25,
+                           C1a = 1.0,
+                           C2a = 1.0,
+                           C3a = 1.0,
+                           C4a = 1.0)
+    
     bl.s = [0, 0.25, 0.6, 1.]
     
     bl.init_regions(5)
@@ -359,6 +387,12 @@ def configure_incorrect():
     l.thickness = np.array([0.0025, 0.0045, 0.004, 0.001])
     l.angle = np.zeros(4)
     bl.webs['web01'] = copy.copy(w)
+    
+    bl.init_bonds(1, [[0, 1, -2, -1]])
+    b = bl.bonds['bond00']
+    l = b.add_layer('adhesive')
+    l.thickness = np.array([0.0, 1.0, 1.0, 0.0])
+    l.angle = np.zeros(4)
     
     bl.check_consistency()
     
