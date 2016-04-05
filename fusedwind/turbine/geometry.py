@@ -432,6 +432,12 @@ class FFDSpline(Component):
         self.nC = Cx.shape[0]
         self.Cx = Cx
         self.s = s
+        self._iCx0 = 0
+        self._iCx1 = None
+        if self.Cx[0] > 0.:
+            self._iCx0 = np.where(np.abs(self.s-self.Cx[0])==np.abs(self.s-self.Cx[0]).min())[0]
+        if self.Cx[-1] < 1.:
+            self._iCx1 = np.where(np.abs(self.s-self.Cx[-1])==np.abs(self.s-self.Cx[-1]).min())[0]+1
         self.Pinit = P
         self._size = P.shape[0]
         self.scaler = scaler
@@ -454,14 +460,16 @@ class FFDSpline(Component):
         """
         update the spline
         """
+
         C = params[self._name + '_C']
 
         if not self._init_called:
             self.set_spline(self.spline_options['spline_type'])
-            # self.Pbase = self.base_spline(self.s, self.xinit, self.Pinit)
-            self.spline.initialize(self.s, self.Cx, C)
-        self._P = self.spline(self.s, self.Cx, C)
-        P = self.Pinit + self._P * self.scaler
+            self.spline.initialize(self.s[self._iCx0:self._iCx1], self.Cx, C)
+        self._P = self.spline(self.s[self._iCx0:self._iCx1], self.Cx, C)
+        _P = np.zeros(self.Pinit.shape[0])
+        _P[self._iCx0:self._iCx1] = self._P
+        P = self.Pinit + _P * self.scaler
         curv = curvature(np.array([self.s, P]).T)
         unknowns[self._name] = P
         unknowns[self._name + '_curv'] = curv

@@ -4,6 +4,7 @@ import numpy as np
 from openmdao.recorders.base_recorder import BaseRecorder
 from fusedwind.turbine.structure import write_bladestructure
 
+
 def get_structure_recording_vars(st3d, with_props=False, with_CPs=False):
     """
     convenience method for generating list of variable names
@@ -70,9 +71,11 @@ def get_structure_recording_vars(st3d, with_props=False, with_CPs=False):
                                'pacc_u_curv',
                                'pacc_l_curv'])
         for ireg, reg in enumerate(st3d['webs']):
-            recording_vars.extend(['web_angle%02d' % ireg, 'web_offset%02d'%ireg])
+            recording_vars.extend(['web_angle%02d' % ireg,
+                                  'web_offset%02d' % ireg])
 
     return recording_vars
+
 
 def write_recorded_bladestructure(st3d, db, coordinate, filebase):
 
@@ -147,9 +150,8 @@ def get_planform_recording_vars(suffix='', with_CPs=False):
 
     recording_vars = []
 
-    names = ['x', 'y', 'z', 'rot_z', 'rot_y', 'rot_z',
-                      'chord', 'rthick', 'p_le']
-
+    names = ['s', 'x', 'y', 'z', 'rot_z', 'rot_y', 'rot_z',
+             'chord', 'rthick', 'p_le']
 
     if suffix != '':
         pf_vars = [name + suffix for name in names]
