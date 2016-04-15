@@ -332,6 +332,16 @@ class Region(object):
         self.layers[lname] = layer
         return layer
     
+    def thick_matrix(self):
+        '''        
+        :return: np.array containing thicknesses of all layers (no_layers,s)
+        '''
+        thdata = []
+        for k, v in self.layers.iteritems():
+                thdata.append(v.thickness)
+        thick_matrix = np.fliplr(np.rot90(np.r_[thdata], -1))
+        return thick_matrix
+    
 class BladeLayup(object):
     """ Span-wise layup definition of a blade.
     
@@ -526,6 +536,54 @@ class BladeLayup(object):
             print('%s inconsistencies detected!' % self._warns) 
         else:
             print('OK.')
+            
+    def plot_layup(self):
+        import matplotlib.pylab as plt
+        
+        # DPs
+        fig = plt.figure()
+        for dp in self.DPs.itervalues():
+            plt.plot(self.s, dp.arc)
+        
+        NUM_COLORS = len(self.materials)
+        cm = plt.get_cmap('jet')
+        
+        cmap = [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)]
+        cm_dict = {}
+        for i, m in enumerate(self.materials.iterkeys()):
+            cm_dict[m] = cmap[i]
+            
+        # check for identic regions
+        reg_sets = []
+        rset = {}
+        rset['regions'] = []
+        rset['rthicks'] = np.zeros((1,1))
+        reg_sets[0] = rset
+        for i, (rk, rv) in enumerate(self.regions.iteritems()):
+            rthicks = rv.thick_matrix()[:,:]
+            for k, v in reg_sets.iteritems():
+                if np.array_equal(v['rthick'], rthicks):
+                    v['regions'].append(rk)
+            
+            
+            if rthicks not in [v for v in reg_sets.itervalues()]:
+                rset['rthicks'] = rthicks
+                reg_sets[str(i)] = rthicks
+        #for r in self.regions.itervalues():
+        r = self.regions['region09']
+        fig = plt.figure()
+        t = np.zeros_like(self.s)
+        for k, l in r.layers.iteritems():
+            mat_name = k[:-2]
+            mat_count = k[-2:]
+            plt.plot(self.s, t + l.thickness, 'k')
+            plt.fill_between(self.s, t, t + l.thickness, color=cm_dict[mat_name],
+                             label = mat_name if int(mat_count) == 0 else "_nolegend_")
+            t = t + l.thickness
+        plt.legend(loc = 'best')
+        plt.show()
+        
+        None
             
 def create_bladestructure(bl):
     """ Creator for BladeStructureVT3D data from a BladeLayup object
