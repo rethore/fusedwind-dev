@@ -539,7 +539,9 @@ def create_bladestructure(bl):
     
     st3d['version'] = bl._version
     
-    st3d['materials'] = {name:i for i, name in enumerate(bl.materials.iterkeys())}
+    st3d['materials'] = OrderedDict()
+    for i, name in enumerate(bl.materials.iterkeys()):
+        st3d['materials'][name] = i
 
     matprops = []
     failmat = []
