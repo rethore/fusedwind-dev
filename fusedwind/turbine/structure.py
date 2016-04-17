@@ -9,6 +9,7 @@ from openmdao.core.problem import Problem
 from openmdao.api import IndepVarComp
 
 from fusedwind.turbine.geometry import FFDSpline
+from collections import OrderedDict
 
 try:
     from PGL.components.airfoil import AirfoilShape
@@ -80,7 +81,10 @@ def read_bladestructure(filebase):
         materials = first_line
     if version >= 1:
         materials = fid.readline().split()[1:]
-    st3d['materials'] = {name:i for i, name in enumerate(materials)}
+    #st3d['materials'] = {name:i for i, name in enumerate(materials)}
+    st3d['materials'] = OrderedDict()
+    for i, name in enumerate(materials):
+        st3d['materials'][name] = i
     data = np.loadtxt(fid)
     st3d['matprops'] = data
 
