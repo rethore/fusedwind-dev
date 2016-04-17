@@ -464,7 +464,7 @@ class BladeLayup(object):
         for their existence in the materials dict. Also initilized objects are 
         checked if they have unset values.
         '''
-        print('Starting consistency check of BladeLeayup.')
+        print('Starting consistency check of BladeLayup.')
         #  check BladeLayup attributes
         for attr, val in self.__dict__.iteritems():
             if val is None:
