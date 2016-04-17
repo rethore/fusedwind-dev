@@ -323,7 +323,7 @@ class Region(object):
         '''
         dubl = 0
         for k in self.layers.iterkeys():
-            if name in k:
+            if name == k[:-2]:
                 dubl += 1
 
         lname = '%s%02d' % (name, dubl)
