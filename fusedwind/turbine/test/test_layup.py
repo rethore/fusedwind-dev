@@ -415,6 +415,12 @@ class LayupTests(unittest.TestCase):
     
     def test_check_consistency(self):
         self.assertEqual(self.bl._warns, 0, None)
+        
+    def test_print_plybook_explode(self):
+        self.bl.print_plybook(filename = 'plybook_explode', vmode = 'explode')
+    
+    def test_print_plybook_stack(self):
+        self.bl.print_plybook(filename = 'plybook_stack', vmode = 'stack')
     
     def test_check_consistency_incorrect(self):
         self.bl_inc = configure_incorrect()

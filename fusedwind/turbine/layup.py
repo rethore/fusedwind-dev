@@ -332,15 +332,24 @@ class Region(object):
         self.layers[lname] = layer
         return layer
     
-    def thick_matrix(self):
-        '''        
-        :return: np.array containing thicknesses of all layers (no_layers,s)
+    def init_thicknesses(self):
+        ''' Initiates thickness matrix of the region plus the max thickness
+            of each layer
+        :return: thick_matrix: 2d np.array containing thicknesses of all layers (no_layers,s)
+        :return: thick_max: 1d np.array max thickness per layer
         '''
-        thdata = []
-        for k, v in self.layers.iteritems():
-                thdata.append(v.thickness)
-        thick_matrix = np.fliplr(np.rot90(np.r_[thdata], -1))
-        return thick_matrix
+        thickmatdata = []
+        for v in self.layers.itervalues():
+                thickmatdata.append(v.thickness)
+        self.thick_matrix = np.fliplr(np.rot90(np.r_[thickmatdata], -1))
+        
+        thickmaxdata = []
+        for l in range(self.thick_matrix.shape[1]):
+            thickmaxdata.append(np.max(self.thick_matrix[:,l]))
+        self.thick_max = np.array(thickmaxdata)
+        
+        return self.thick_matrix, self.thick_max
+        
     
 class BladeLayup(object):
     """ Span-wise layup definition of a blade.
@@ -537,53 +546,149 @@ class BladeLayup(object):
         else:
             print('OK.')
             
-    def plot_layup(self):
+    def print_plybook(self, filename = 'plybook', vmode = 'stack'):
+        ''' Prints a PDF file for layup visualization.
+        
+        :param filename: name of the PDF
+        :param vmode: 'stack' or 'explode' visualization of layup
+        Note: 'stack' visualisation includes ply-drops to zero, 'explode' not.
+        '''
+        
         import matplotlib.pylab as plt
+        from matplotlib.backends.backend_pdf import PdfPages
         
-        # DPs
-        fig = plt.figure()
-        for dp in self.DPs.itervalues():
-            plt.plot(self.s, dp.arc)
+        pb = PdfPages(filename + '.pdf')
         
-        NUM_COLORS = len(self.materials)
         cm = plt.get_cmap('jet')
         
-        cmap = [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)]
+        plt.figure()
+        plt.title('DPs')   
+        for di, dk in enumerate(sorted(self.DPs, reverse = True)):
+            plt.plot(self.s, self.DPs[dk].arc, label = dk[-2:]) 
+        plt.legend(loc = 'best', prop={'size':6}, bbox_to_anchor=(1, 1))
+        pb.savefig() # save fig to plybook
+        
+        # create material color dict (necessary for the case that materials list
+        # is longer than 7)
+        start = 0.2
+        stop = 1.0
+        number_of_lines = len(self.materials)
+        mat_colors = [cm(x) for x in np.linspace(start, stop, number_of_lines)]
         cm_dict = {}
         for i, m in enumerate(self.materials.iterkeys()):
-            cm_dict[m] = cmap[i]
-            
-        # check for identic regions
-        reg_sets = []
-        rset = {}
-        rset['regions'] = []
-        rset['rthicks'] = np.zeros((1,1))
-        reg_sets[0] = rset
-        for i, (rk, rv) in enumerate(self.regions.iteritems()):
-            rthicks = rv.thick_matrix()[:,:]
-            for k, v in reg_sets.iteritems():
-                if np.array_equal(v['rthick'], rthicks):
-                    v['regions'].append(rk)
-            
-            
-            if rthicks not in [v for v in reg_sets.itervalues()]:
-                rset['rthicks'] = rthicks
-                reg_sets[str(i)] = rthicks
-        #for r in self.regions.itervalues():
-        r = self.regions['region09']
-        fig = plt.figure()
-        t = np.zeros_like(self.s)
-        for k, l in r.layers.iteritems():
-            mat_name = k[:-2]
-            mat_count = k[-2:]
-            plt.plot(self.s, t + l.thickness, 'k')
-            plt.fill_between(self.s, t, t + l.thickness, color=cm_dict[mat_name],
-                             label = mat_name if int(mat_count) == 0 else "_nolegend_")
-            t = t + l.thickness
-        plt.legend(loc = 'best')
-        plt.show()
+            cm_dict[m] = mat_colors[i]
         
-        None
+        def _region_sets(reg_type):
+            ''' Compares all regions of reg_type and creates a list of unique reg_types
+            
+            :param reg_type: self.regions or self.webs or self.bonds
+            :return: list: unique region sets
+            '''
+            
+            # list of rthicks and region cum thicknesses
+            rthicks = []
+            rmaxthicks = []
+            for i, rv in enumerate(reg_type.itervalues()):
+                # init thicknesses
+                rv.init_thicknesses()
+                rthicks.append(rv.thick_matrix)
+                rmaxthicks.append(np.sum(rv.thick_max))
+                
+            # maximum thickness of sets
+            rmaxthick = np.max(rmaxthicks)
+            
+            # check for identic regions
+            rsets = []
+            for rt0 in rthicks:
+                i0_idents = []
+                for i, rt in enumerate(rthicks):
+                    if np.array_equal(rt0, rt):
+                        i0_idents.append(i)
+                rsets.append(i0_idents)
+            # remove duplicate entries
+            rsets = map(list, OrderedDict.fromkeys(map(tuple, rsets)))
+            return rsets, rmaxthick
+        
+        def _plot_region(rsets, reg_type):
+            ''' Adds plots of region sets to plybook
+            
+            :param rsets: list of region sets
+            :param reg_type: self.regions or self.webs or self.bonds
+            '''
+            if reg_type == self.regions:
+                rtype = 'region'
+            elif reg_type == self.webs:
+                rtype = 'web'
+            elif reg_type == self.bonds:
+                rtype = 'bond'
+            
+            for rset in rsets:
+                r = reg_type['%s%02d' % (rtype,rset[0])] 
+                plt.figure()
+                plt.title(rtype.upper() + ' ' + str(rset))
+                t = np.zeros_like(self.s)
+                for k, l in r.layers.iteritems():
+                    mat_name = k[:-2]
+                    mat_count = k[-2:]
+                    if vmode == 'stack':
+                        # draw layer box incl ply-drops to zero
+                        plt.plot(self.s, t + l.thickness, 'k')
+                        # draw layer thickness distro incl ply-drops to zero
+                        plt.fill_between(self.s, t, t + l.thickness,
+                                         color=cm_dict[mat_name],
+                                         label = mat_name if int(mat_count) == 0 else "_nolegend_")
+                        t = t + l.thickness
+                    elif vmode == 'explode':
+                        # check for layer drops
+                        drops = []
+                        drop_prev = 0
+                        for s, thick in enumerate(l.thickness):
+                            if t[s] + thick > t[s]:
+                                drop = 1
+                            else:
+                                drop = 0
+                            if drop != drop_prev and drop_prev == 0:
+                                drops.append(s)
+                            elif drop != drop_prev and drop_prev == 1:
+                                drops.append(s-1)
+                            drop_prev = drop
+                        if len(drops) == 1: 
+                            drops.append(len(l.thickness)-1)
+                        # draw layer box excl ply-drops to zero
+                        for di in range(len(drops)-1):
+                            plt.plot([self.s[drops[di]], self.s[drops[di]]],
+                                     [t[drops[di]], t[drops[di]] + np.max(l.thickness)], 'k')
+                            plt.plot([self.s[drops[di+1]], self.s[drops[di+1]]],
+                                     [t[drops[di+1]], t[drops[di+1]] + np.max(l.thickness)], 'k')
+                            plt.plot(self.s[drops[di]:drops[di+1]+1],
+                                     t[drops[di]:drops[di+1]+1], 'k')
+                            plt.plot(self.s[drops[di]:drops[di+1]+1],
+                                     t[drops[di]:drops[di+1]+1] + np.max(l.thickness), 'k')
+                        # draw layer thickness distro excl ply-drops to zero
+                        plt.fill_between(self.s, t, t + l.thickness,
+                                         where=t < t + l.thickness,
+                                         color=cm_dict[mat_name],
+                                         label = mat_name if int(mat_count) == 0 else "_nolegend_")
+                        t = t + np.max(l.thickness)
+                plt.ylim([0, maxthick]) # set all plot limits to maxthickness
+                plt.xlim([0, 1])
+                plt.legend(loc = 'best')
+                pb.savefig() # save fig to plybook
+        
+        rsets, rmaxthick = _region_sets(self.regions)
+        wsets, wmaxthick = _region_sets(self.webs)
+        if hasattr(self, 'bonds'):
+            bsets, bmaxthick = _region_sets(self.bonds)
+            maxthick = np.max([rmaxthick, wmaxthick, bmaxthick])
+        else:
+            maxthick = np.max([rmaxthick, wmaxthick])
+        
+        _plot_region(rsets, reg_type = self.regions)
+        _plot_region(wsets, reg_type = self.webs)
+        if hasattr(self, 'bonds'):
+            _plot_region(bsets, reg_type = self.bonds)
+        
+        pb.close() # close plybook
             
 def create_bladestructure(bl):
     """ Creator for BladeStructureVT3D data from a BladeLayup object
