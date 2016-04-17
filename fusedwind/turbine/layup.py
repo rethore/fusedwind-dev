@@ -626,6 +626,9 @@ class BladeLayup(object):
                 r = reg_type['%s%02d' % (rtype,rset[0])] 
                 plt.figure()
                 plt.title(rtype.upper() + ' ' + str(rset))
+                # draw station lines
+                for s in self.s:
+                    plt.plot([self.s, self.s], [0, maxthick], 'k', linewidth=0.5)
                 t = np.zeros_like(self.s)
                 for k, l in r.layers.iteritems():
                     mat_name = k[:-2]
