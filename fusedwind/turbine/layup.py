@@ -555,6 +555,7 @@ class BladeLayup(object):
         '''
         
         import matplotlib.pylab as plt
+        import matplotlib.patches as patches
         from matplotlib.backends.backend_pdf import PdfPages
         
         pb = PdfPages(filename + '.pdf')
@@ -624,11 +625,12 @@ class BladeLayup(object):
             
             for rset in rsets:
                 r = reg_type['%s%02d' % (rtype,rset[0])] 
-                plt.figure()
+                fig1 = plt.figure()
+                ax1 = fig1.add_subplot(111)
                 plt.title(rtype.upper() + ' ' + str(rset))
                 # draw station lines
                 for s in self.s:
-                    plt.plot([self.s, self.s], [0, maxthick], 'k', linewidth=0.5)
+                    ax1.plot([self.s, self.s], [0, maxthick], 'k', linewidth=0.5)
                 t = np.zeros_like(self.s)
                 for k, l in r.layers.iteritems():
                     mat_name = k[:-2]
@@ -657,26 +659,75 @@ class BladeLayup(object):
                             drop_prev = drop
                         if len(drops) == 1: 
                             drops.append(len(l.thickness)-1)
+                            
+                        max_thick = np.max(l.thickness)
+                        bound_col= 'k'
                         # draw layer box excl ply-drops to zero
                         for di in range(len(drops)-1):
-                            plt.plot([self.s[drops[di]], self.s[drops[di]]],
-                                     [t[drops[di]], t[drops[di]] + np.max(l.thickness)], 'k')
-                            plt.plot([self.s[drops[di+1]], self.s[drops[di+1]]],
-                                     [t[drops[di+1]], t[drops[di+1]] + np.max(l.thickness)], 'k')
-                            plt.plot(self.s[drops[di]:drops[di+1]+1],
-                                     t[drops[di]:drops[di+1]+1], 'k')
-                            plt.plot(self.s[drops[di]:drops[di+1]+1],
-                                     t[drops[di]:drops[di+1]+1] + np.max(l.thickness), 'k')
+                            
+                            
+                            north_west = [self.s[drops[di]], t[drops[di]] + max_thick]
+                            south_west = [self.s[drops[di]], t[drops[di]]]
+                            north_east = [self.s[drops[di+1]], t[drops[di+1]]+ max_thick]
+                            south_east = [self.s[drops[di+1]], t[drops[di+1]]]
+                            # draw ramp up
+                            if drops[di] > 0:
+                                #plt.plot([self.s[drops[di]-1], self.s[drops[di]]],
+                                #         [t[drops[di]], t[drops[di]] + max_thick], bound_col)
+                                #plt.plot([self.s[drops[di]-1], self.s[drops[di]]],
+                                #         [t[drops[di]], t[drops[di]]], bound_col)
+                                south_west = [self.s[drops[di]-1], t[drops[di]]]
+                                south_south_west = [self.s[drops[di]], t[drops[di]]]
+                                north_mid_west = [self.s[drops[di]], (t + l.thickness)[drops[di]]]
+                                
+                                ax1.add_patch(patches.Polygon(
+                                [south_west, north_mid_west, south_south_west],
+                                                            linewidth=0,
+                                                              facecolor=cm_dict[mat_name]))
+
+                            if drops[di+1] < len(self.s)-1:
+                                
+                                south_east = [self.s[drops[di+1]+1], t[drops[di+1]]]
+                                
+                                #plt.plot([self.s[drops[di]], self.s[drops[di]]],
+                                #         [t[drops[di]], t[drops[di]] + max_thick], bound_col)
+                                south_south_east = [self.s[drops[di+1]], t[drops[di+1]]]
+                                north_mid_east = [self.s[drops[di+1]], (t + l.thickness)[drops[di+1]]]
+                                ax1.add_patch(patches.Polygon(
+                                [north_mid_east, south_east, south_south_east],
+                                                            linewidth=0,
+                                                              facecolor=cm_dict[mat_name]))
+        
+                                
+                            ax1.add_patch(patches.Polygon(
+                                [south_west, north_west, north_east, south_east],
+                                                              fill=False))
+                            # draw ramp down
+                            #if drops[di+1] < len(self.s)-1:
+                                #plt.plot([self.s[drops[di+1]+1], self.s[drops[di+1]]],
+                                #         [t[drops[di+1]], t[drops[di+1]] + max_thick], bound_col)
+                                #plt.plot([self.s[drops[di+1]+1], self.s[drops[di+1]]],
+                                #         [t[drops[di+1]], t[drops[di+1]]], bound_col)
+                            #else:
+                                #plt.plot([self.s[drops[di+1]], self.s[drops[di+1]]],
+                                #         [t[drops[di+1]], t[drops[di+1]] + max_thick], bound_col)
+                            # draw bottom line
+                            #plt.plot(self.s[drops[di]:drops[di+1]+1],
+                                     #t[drops[di]:drops[di+1]+1], bound_col)
+                            # draw top line
+                            #plt.plot(self.s[drops[di]:drops[di+1]+1],
+                                     #t[drops[di]:drops[di+1]+1] + max_thick, bound_col)
                         # draw layer thickness distro excl ply-drops to zero
                         plt.fill_between(self.s, t, t + l.thickness,
                                          where=t < t + l.thickness,
                                          color=cm_dict[mat_name],
                                          label = mat_name if int(mat_count) == 0 else "_nolegend_")
-                        t = t + np.max(l.thickness)
+                        t = t + max_thick
                 plt.ylim([0, maxthick]) # set all plot limits to maxthickness
                 plt.xlim([0, 1])
                 plt.legend(loc = 'best')
-                pb.savefig() # save fig to plybook
+                #plt.show()
+                pb.savefig(fig1) # save fig to plybook
         
         rsets, rmaxthick = _region_sets(self.regions)
         wsets, wmaxthick = _region_sets(self.webs)
