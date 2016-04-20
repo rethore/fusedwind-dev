@@ -551,7 +551,6 @@ class BladeLayup(object):
         
         :param filename: name of the PDF
         :param vmode: 'stack' or 'explode' visualization of layup
-        Note: 'stack' visualisation includes ply-drops to zero, 'explode' not.
         '''
         
         import matplotlib.pylab as plt
@@ -636,9 +635,9 @@ class BladeLayup(object):
                     mat_name = k[:-2]
                     mat_count = k[-2:]
                     if vmode == 'stack':
-                        # draw layer box incl ply-drops to zero
+                        # draw layer box
                         plt.plot(self.s, t + l.thickness, 'k')
-                        # draw layer thickness distro incl ply-drops to zero
+                        # draw layer thickness distro
                         plt.fill_between(self.s, t, t + l.thickness,
                                          color=cm_dict[mat_name],
                                          label = mat_name if int(mat_count) == 0 else "_nolegend_")
@@ -659,74 +658,44 @@ class BladeLayup(object):
                             drop_prev = drop
                         if len(drops) == 1: 
                             drops.append(len(l.thickness)-1)
-                            
                         max_thick = np.max(l.thickness)
-                        bound_col= 'k'
-                        # draw layer box excl ply-drops to zero
+                        # draw layer box
                         for di in range(len(drops)-1):
-                            
-                            
+                            # draw box per layer
                             north_west = [self.s[drops[di]], t[drops[di]] + max_thick]
                             south_west = [self.s[drops[di]], t[drops[di]]]
                             north_east = [self.s[drops[di+1]], t[drops[di+1]]+ max_thick]
                             south_east = [self.s[drops[di+1]], t[drops[di+1]]]
-                            # draw ramp up
-                            if drops[di] > 0:
-                                #plt.plot([self.s[drops[di]-1], self.s[drops[di]]],
-                                #         [t[drops[di]], t[drops[di]] + max_thick], bound_col)
-                                #plt.plot([self.s[drops[di]-1], self.s[drops[di]]],
-                                #         [t[drops[di]], t[drops[di]]], bound_col)
+                            if drops[di] > 0: # we have a plydrop up
+                                north_west = [self.s[drops[di]-1], t[drops[di]] + max_thick]
                                 south_west = [self.s[drops[di]-1], t[drops[di]]]
                                 south_south_west = [self.s[drops[di]], t[drops[di]]]
                                 north_mid_west = [self.s[drops[di]], (t + l.thickness)[drops[di]]]
-                                
+                                # draw layer thickness distro drop
                                 ax1.add_patch(patches.Polygon(
-                                [south_west, north_mid_west, south_south_west],
-                                                            linewidth=0,
-                                                              facecolor=cm_dict[mat_name]))
-
-                            if drops[di+1] < len(self.s)-1:
-                                
+                                    [south_west, north_mid_west, south_south_west],
+                                    linewidth=0,facecolor=cm_dict[mat_name]))
+                            if drops[di+1] < len(self.s)-1: # we have a plydrop down
                                 south_east = [self.s[drops[di+1]+1], t[drops[di+1]]]
-                                
-                                #plt.plot([self.s[drops[di]], self.s[drops[di]]],
-                                #         [t[drops[di]], t[drops[di]] + max_thick], bound_col)
+                                north_east = [self.s[drops[di+1]+1], t[drops[di+1]]+ max_thick]
                                 south_south_east = [self.s[drops[di+1]], t[drops[di+1]]]
                                 north_mid_east = [self.s[drops[di+1]], (t + l.thickness)[drops[di+1]]]
+                                # draw layer thickness distro drop
                                 ax1.add_patch(patches.Polygon(
-                                [north_mid_east, south_east, south_south_east],
-                                                            linewidth=0,
-                                                              facecolor=cm_dict[mat_name]))
-        
-                                
+                                    [north_mid_east, south_east, south_south_east],
+                                    linewidth=0,facecolor=cm_dict[mat_name]))
                             ax1.add_patch(patches.Polygon(
                                 [south_west, north_west, north_east, south_east],
-                                                              fill=False))
-                            # draw ramp down
-                            #if drops[di+1] < len(self.s)-1:
-                                #plt.plot([self.s[drops[di+1]+1], self.s[drops[di+1]]],
-                                #         [t[drops[di+1]], t[drops[di+1]] + max_thick], bound_col)
-                                #plt.plot([self.s[drops[di+1]+1], self.s[drops[di+1]]],
-                                #         [t[drops[di+1]], t[drops[di+1]]], bound_col)
-                            #else:
-                                #plt.plot([self.s[drops[di+1]], self.s[drops[di+1]]],
-                                #         [t[drops[di+1]], t[drops[di+1]] + max_thick], bound_col)
-                            # draw bottom line
-                            #plt.plot(self.s[drops[di]:drops[di+1]+1],
-                                     #t[drops[di]:drops[di+1]+1], bound_col)
-                            # draw top line
-                            #plt.plot(self.s[drops[di]:drops[di+1]+1],
-                                     #t[drops[di]:drops[di+1]+1] + max_thick, bound_col)
-                        # draw layer thickness distro excl ply-drops to zero
+                                fill=False))
+                        # draw layer thickness distro
                         plt.fill_between(self.s, t, t + l.thickness,
-                                         where=t < t + l.thickness,
-                                         color=cm_dict[mat_name],
-                                         label = mat_name if int(mat_count) == 0 else "_nolegend_")
+                            where=t < t + l.thickness,
+                            color=cm_dict[mat_name],
+                            label = mat_name if int(mat_count) == 0 else "_nolegend_")
                         t = t + max_thick
                 plt.ylim([0, maxthick]) # set all plot limits to maxthickness
                 plt.xlim([0, 1])
                 plt.legend(loc = 'best')
-                #plt.show()
                 pb.savefig(fig1) # save fig to plybook
         
         rsets, rmaxthick = _region_sets(self.regions)
