@@ -566,6 +566,9 @@ class BladeLayup(object):
         for di, dk in enumerate(sorted(self.DPs, reverse = True)):
             plt.plot(self.s, self.DPs[dk].arc, label = dk[-2:]) 
         plt.legend(loc = 'best', prop={'size':6}, bbox_to_anchor=(1, 1))
+        # draw station lines
+        for s in self.s:
+            plt.plot([self.s, self.s], [-1, 1], 'k', linewidth=0.5)
         pb.savefig() # save fig to plybook
         
         # create material color dict (necessary for the case that materials list
@@ -593,10 +596,8 @@ class BladeLayup(object):
                 rv.init_thicknesses()
                 rthicks.append(rv.thick_matrix)
                 rmaxthicks.append(np.sum(rv.thick_max))
-                
             # maximum thickness of sets
             rmaxthick = np.max(rmaxthicks)
-            
             # check for identic regions
             rsets = []
             for rt0 in rthicks:
