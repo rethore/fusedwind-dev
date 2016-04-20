@@ -323,7 +323,7 @@ class Region(object):
         '''
         dubl = 0
         for k in self.layers.iterkeys():
-            if name in k:
+            if name == k[:-2]:
                 dubl += 1
 
         lname = '%s%02d' % (name, dubl)
@@ -331,6 +331,25 @@ class Region(object):
         layer = Layer()
         self.layers[lname] = layer
         return layer
+    
+    def init_thicknesses(self):
+        ''' Initiates thickness matrix of the region plus the max thickness
+            of each layer
+        :return: thick_matrix: 2d np.array containing thicknesses of all layers (no_layers,s)
+        :return: thick_max: 1d np.array max thickness per layer
+        '''
+        thickmatdata = []
+        for v in self.layers.itervalues():
+                thickmatdata.append(v.thickness)
+        self.thick_matrix = np.fliplr(np.rot90(np.r_[thickmatdata], -1))
+        
+        thickmaxdata = []
+        for l in range(self.thick_matrix.shape[1]):
+            thickmaxdata.append(np.max(self.thick_matrix[:,l]))
+        self.thick_max = np.array(thickmaxdata)
+        
+        return self.thick_matrix, self.thick_max
+        
     
 class BladeLayup(object):
     """ Span-wise layup definition of a blade.
@@ -454,7 +473,7 @@ class BladeLayup(object):
         for their existence in the materials dict. Also initilized objects are 
         checked if they have unset values.
         '''
-        print('Starting consistency check of BladeLeayup.')
+        print('Starting consistency check of BladeLayup.')
         #  check BladeLayup attributes
         for attr, val in self.__dict__.iteritems():
             if val is None:
@@ -526,6 +545,174 @@ class BladeLayup(object):
             print('%s inconsistencies detected!' % self._warns) 
         else:
             print('OK.')
+            
+    def print_plybook(self, filename = 'plybook', vmode = 'stack'):
+        ''' Prints a PDF file for layup visualization.
+        
+        :param filename: name of the PDF
+        :param vmode: 'stack' or 'explode' visualization of layup
+        '''
+        
+        import matplotlib.pylab as plt
+        import matplotlib.patches as patches
+        from matplotlib.backends.backend_pdf import PdfPages
+        
+        pb = PdfPages(filename + '.pdf')
+        
+        cm = plt.get_cmap('jet')
+        
+        plt.figure()
+        plt.title('DPs')   
+        for di, dk in enumerate(sorted(self.DPs, reverse = True)):
+            plt.plot(self.s, self.DPs[dk].arc, label = dk[-2:]) 
+        plt.legend(loc = 'best', prop={'size':6}, bbox_to_anchor=(1, 1))
+        # draw station lines
+        for s in self.s:
+            plt.plot([self.s, self.s], [-1, 1], 'k', linewidth=0.5)
+        pb.savefig() # save fig to plybook
+        
+        # create material color dict (necessary for the case that materials list
+        # is longer than 7)
+        start = 0.2
+        stop = 1.0
+        number_of_lines = len(self.materials)
+        mat_colors = [cm(x) for x in np.linspace(start, stop, number_of_lines)]
+        cm_dict = {}
+        for i, m in enumerate(self.materials.iterkeys()):
+            cm_dict[m] = mat_colors[i]
+        
+        def _region_sets(reg_type):
+            ''' Compares all regions of reg_type and creates a list of unique reg_types
+            
+            :param reg_type: self.regions or self.webs or self.bonds
+            :return: list: unique region sets
+            '''
+            
+            # list of rthicks and region cum thicknesses
+            rthicks = []
+            rmaxthicks = []
+            for i, rv in enumerate(reg_type.itervalues()):
+                # init thicknesses
+                rv.init_thicknesses()
+                rthicks.append(rv.thick_matrix)
+                rmaxthicks.append(np.sum(rv.thick_max))
+            # maximum thickness of sets
+            rmaxthick = np.max(rmaxthicks)
+            # check for identic regions
+            rsets = []
+            for rt0 in rthicks:
+                i0_idents = []
+                for i, rt in enumerate(rthicks):
+                    if np.array_equal(rt0, rt):
+                        i0_idents.append(i)
+                rsets.append(i0_idents)
+            # remove duplicate entries
+            rsets = map(list, OrderedDict.fromkeys(map(tuple, rsets)))
+            return rsets, rmaxthick
+        
+        def _plot_region(rsets, reg_type):
+            ''' Adds plots of region sets to plybook
+            
+            :param rsets: list of region sets
+            :param reg_type: self.regions or self.webs or self.bonds
+            '''
+            if reg_type == self.regions:
+                rtype = 'region'
+            elif reg_type == self.webs:
+                rtype = 'web'
+            elif reg_type == self.bonds:
+                rtype = 'bond'
+            
+            for rset in rsets:
+                r = reg_type['%s%02d' % (rtype,rset[0])] 
+                fig1 = plt.figure()
+                ax1 = fig1.add_subplot(111)
+                plt.title(rtype.upper() + ' ' + str(rset))
+                # draw station lines
+                for s in self.s:
+                    ax1.plot([self.s, self.s], [0, maxthick], 'k', linewidth=0.5)
+                t = np.zeros_like(self.s)
+                for k, l in r.layers.iteritems():
+                    mat_name = k[:-2]
+                    mat_count = k[-2:]
+                    if vmode == 'stack':
+                        # draw layer box
+                        plt.plot(self.s, t + l.thickness, 'k')
+                        # draw layer thickness distro
+                        plt.fill_between(self.s, t, t + l.thickness,
+                                         color=cm_dict[mat_name],
+                                         label = mat_name if int(mat_count) == 0 else "_nolegend_")
+                        t = t + l.thickness
+                    elif vmode == 'explode':
+                        # check for layer drops
+                        drops = []
+                        drop_prev = 0
+                        for s, thick in enumerate(l.thickness):
+                            if t[s] + thick > t[s]:
+                                drop = 1
+                            else:
+                                drop = 0
+                            if drop != drop_prev and drop_prev == 0:
+                                drops.append(s)
+                            elif drop != drop_prev and drop_prev == 1:
+                                drops.append(s-1)
+                            drop_prev = drop
+                        if len(drops) == 1: 
+                            drops.append(len(l.thickness)-1)
+                        max_thick = np.max(l.thickness)
+                        # draw layer box
+                        for di in range(len(drops)-1):
+                            # draw box per layer
+                            north_west = [self.s[drops[di]], t[drops[di]] + max_thick]
+                            south_west = [self.s[drops[di]], t[drops[di]]]
+                            north_east = [self.s[drops[di+1]], t[drops[di+1]]+ max_thick]
+                            south_east = [self.s[drops[di+1]], t[drops[di+1]]]
+                            if drops[di] > 0: # we have a plydrop up
+                                north_west = [self.s[drops[di]-1], t[drops[di]] + max_thick]
+                                south_west = [self.s[drops[di]-1], t[drops[di]]]
+                                south_south_west = [self.s[drops[di]], t[drops[di]]]
+                                north_mid_west = [self.s[drops[di]], (t + l.thickness)[drops[di]]]
+                                # draw layer thickness distro drop
+                                ax1.add_patch(patches.Polygon(
+                                    [south_west, north_mid_west, south_south_west],
+                                    linewidth=0,facecolor=cm_dict[mat_name]))
+                            if drops[di+1] < len(self.s)-1: # we have a plydrop down
+                                south_east = [self.s[drops[di+1]+1], t[drops[di+1]]]
+                                north_east = [self.s[drops[di+1]+1], t[drops[di+1]]+ max_thick]
+                                south_south_east = [self.s[drops[di+1]], t[drops[di+1]]]
+                                north_mid_east = [self.s[drops[di+1]], (t + l.thickness)[drops[di+1]]]
+                                # draw layer thickness distro drop
+                                ax1.add_patch(patches.Polygon(
+                                    [north_mid_east, south_east, south_south_east],
+                                    linewidth=0,facecolor=cm_dict[mat_name]))
+                            ax1.add_patch(patches.Polygon(
+                                [south_west, north_west, north_east, south_east],
+                                fill=False))
+                        # draw layer thickness distro
+                        plt.fill_between(self.s, t, t + l.thickness,
+                            where=t < t + l.thickness,
+                            color=cm_dict[mat_name],
+                            label = mat_name if int(mat_count) == 0 else "_nolegend_")
+                        t = t + max_thick
+                plt.ylim([0, maxthick]) # set all plot limits to maxthickness
+                plt.xlim([0, 1])
+                plt.legend(loc = 'best')
+                pb.savefig(fig1) # save fig to plybook
+        
+        rsets, rmaxthick = _region_sets(self.regions)
+        wsets, wmaxthick = _region_sets(self.webs)
+        if hasattr(self, 'bonds'):
+            bsets, bmaxthick = _region_sets(self.bonds)
+            maxthick = np.max([rmaxthick, wmaxthick, bmaxthick])
+        else:
+            maxthick = np.max([rmaxthick, wmaxthick])
+        
+        _plot_region(rsets, reg_type = self.regions)
+        _plot_region(wsets, reg_type = self.webs)
+        if hasattr(self, 'bonds'):
+            _plot_region(bsets, reg_type = self.bonds)
+        
+        pb.close() # close plybook
             
 def create_bladestructure(bl):
     """ Creator for BladeStructureVT3D data from a BladeLayup object
