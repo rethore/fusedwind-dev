@@ -204,7 +204,7 @@ class FUSEDobj(object):
                                 if 'name' in i:
                                     setattr(obj, i['name'], i)
                                 else:
-                                    raise Exception(i,'has no name')
+                                    raise Exception(i,'has no `name` key')
                             else:
                                 raise Exception(val[i], 'should be a dict')
                 else:
@@ -229,18 +229,32 @@ class FUSEDobj(object):
 #        print val
         address = val.split(':*:')
         if len(address) == 1:
+            # There isn't a middle wild card
             keys = val.split(':')
-            #print keys
             if keys[0] == '':
-                yield
+                yield val
             elif len(keys) == 1:
+                # Last "*"" edge case
                 if keys[0] == '*':
                     for k in self.values():
-                        yield k
+                        if isinstance(k, FUSEDobj):
+                            if k._type == 'dict' or k._type == 'list(dict)':
+                                #yield from k.resolves('*')
+                                for i in k.resolves('*'):
+                                    if isinstance(i, FUSEDobj):
+                                        yield i
+                                    else:
+                                        for j in i:
+                                            yield j
+                            else:
+                                yield k
+                        else:
+                            yield k
                 else:
                     yield getattr(self, keys[0])
             else:
                 if keys[0] == '*':
+                    # Last "*"" edge case
                     for v in self.values():
                         for i in v.resolves(':'.join(keys[1:])):
                             if isinstance(i, FUSEDobj):
@@ -249,6 +263,7 @@ class FUSEDobj(object):
                                 for j in i:
                                     yield j
                 else:
+                    # Normal case, get all the other keys
                     for i in getattr(self, keys[0]).resolves(':'.join(keys[1:])):
                         if isinstance(i, FUSEDobj):
                             yield i
@@ -280,6 +295,18 @@ class FUSEDobj(object):
             yield k, getattr(self, k)
 
     ## Operators overloads -----------------------------------------------------
+
+    def __getitem__(self, a):
+        try:
+            return self.value.__getitem__(a)
+        except:
+            return super(FUSEDobj, self).__getitem__(a)
+
+    def __setitem__(self, k, v):
+        try:
+            return self.value.__setitem__(k, v)
+        except:
+            return super(FUSEDobj, self).__setitem__(k, v)
 
 
     def __add__(self, other):
