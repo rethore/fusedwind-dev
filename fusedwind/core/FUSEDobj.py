@@ -108,6 +108,8 @@ class FUSEDobj(object):
             self._flat_dict = flatten(val)
         else:
             self._root = root
+            self._flat_dict = root._flat_dict
+
         self._type = val.__class__.__name__
         self._parent = parent
         self._name = name
@@ -168,8 +170,8 @@ class FUSEDobj(object):
     @property
     def value(self):
         """Get the value from the root flatten dictionary"""
-        if self.address in self._root._flat_dict:
-            return self._root._flat_dict[self.address]
+        if self.address in self._flat_dict:
+            return self._flat_dict[self.address]
         else:
             raise Exception('This is a nested object, use nest() instead')
 
@@ -178,13 +180,10 @@ class FUSEDobj(object):
     @value.setter
     def value(self, val):
         """Write the value at the write place"""
-        if self._root:
-            self._root._flat_dict[self.address] = val
+        if self.address in self._flat_dict:
+            self._flat_dict[self.address] = val
         else:
-            if self.address in self._flat_dict:
-                self._flat_dict[self.address] = val
-            else:
-                raise Exception('This is a nested object, use nest() instead')
+            raise Exception('This is a nested object, use nest() instead')
 
 
     def __setattr__(self, key, val):
@@ -317,6 +316,15 @@ class FUSEDobj(object):
                 return self.value.__add__(other)
         except:
             return super(FUSEDobj, self).__add__(other)
+
+    def __radd__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__radd__(other.value)
+            else:
+                return self.value.__radd__(other)
+        except:
+            return super(FUSEDobj, self).__radd__(other)
 
     def __sub__(self, other):
         try:
@@ -545,3 +553,130 @@ class FUSEDobj(object):
             return self.value.__round__()
         except:
             return super(FUSEDobj, self).__round__()
+
+
+    def __radd__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__radd__(other.value)
+            else:
+                return self.value.__radd__(other)
+        except:
+            return super(FUSEDobj, self).__radd__(other)
+
+    def __rsub__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rsub__(other.value)
+            else:
+                return self.value.__rsub__(other)
+        except:
+            return super(FUSEDobj, self).__rsub__(other)
+
+    def __rmul__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rmul__(other.value)
+            else:
+                return self.value.__rmul__(other)
+        except:
+            return super(FUSEDobj, self).__rmul__(other)
+
+    def __rdiv__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rdiv__(other.value)
+            else:
+                return self.value.__rdiv__(other)
+        except:
+            return super(FUSEDobj, self).__rdiv__(other)
+
+    def __rtruediv__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rtruediv__(other.value)
+            else:
+                return self.value.__rtruediv__(other)
+        except:
+            return super(FUSEDobj, self).__rtruediv__(other)
+
+    def __rfloordiv__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rfloordiv__(other.value)
+            else:
+                return self.value.__rfloordiv__(other)
+        except:
+            return super(FUSEDobj, self).__rfloordiv__(other)
+
+    def __rmod__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rmod__(other.value)
+            else:
+                return self.value.__rmod__(other)
+        except:
+            return super(FUSEDobj, self).__rmod__(other)
+
+    def __rdivmod__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rdivmod__(other.value)
+            else:
+                return self.value.__rdivmod__(other)
+        except:
+            return super(FUSEDobj, self).__rdivmod__(other)
+
+    def __rpow__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rpow__(other.value)
+            else:
+                return self.value.__rpow__(other)
+        except:
+            return super(FUSEDobj, self).__rpow__(other)
+
+    def __rlshift__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rlshift__(other.value)
+            else:
+                return self.value.__rlshift__(other)
+        except:
+            return super(FUSEDobj, self).__rlshift__(other)
+
+    def __rrshift__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rrshift__(other.value)
+            else:
+                return self.value.__rrshift__(other)
+        except:
+            return super(FUSEDobj, self).__rrshift__(other)
+
+    def __rand__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rand__(other.value)
+            else:
+                return self.value.__rand__(other)
+        except:
+            return super(FUSEDobj, self).__rand__(other)
+
+    def __rxor__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__rxor__(other.value)
+            else:
+                return self.value.__rxor__(other)
+        except:
+            return super(FUSEDobj, self).__rxor__(other)
+
+    def __ror__(self, other):
+        try:
+            if isinstance(other, FUSEDobj):
+                return self.value.__ror__(other.value)
+            else:
+                return self.value.__ror__(other)
+        except:
+            return super(FUSEDobj, self).__ror__(other)
