@@ -1,4 +1,5 @@
 import json
+from openmdao.api import IndepVarComp
 
 def flatten(v):
     """Flatten a nested dictionary
@@ -102,15 +103,21 @@ class FUSEDobj(object):
         root: FUSEDobj
             Shortcut to the root of the structure
         """
+        self._type = val.__class__.__name__
         if not root:
             root = self
             self._root = None
             self._flat_dict = flatten(val)
+            self._inputs = set()
+            self._outputs = set()
+            if len(self._flat_dict) == 1 and list(self._flat_dict.keys())[0] == '':
+                #edge case of a scalar object
+                print('edge case', name, val)
+                self._flat_dict = {name:val}
         else:
             self._root = root
             self._flat_dict = root._flat_dict
 
-        self._type = val.__class__.__name__
         self._parent = parent
         self._name = name
         self._keys = []
@@ -134,6 +141,46 @@ class FUSEDobj(object):
             else:
                 self._type = 'list'
 
+    def log_get(self):
+        if not (self._type =='list(dict)' or self._type == 'dict'):
+            self.inputs.add(self.address)
+
+    def log_set(self):
+        if not (self._type =='list(dict)' or self._type == 'dict'):
+            self.outputs.add(self.address)
+
+    def IndepVarComp(self, val=None):
+        if val is not None:
+            self.value = val
+        return IndepVarComp(self.address, val=self.value)
+
+    @property
+    def inputs(self):
+        if self._root is None:
+            return self._inputs
+        else:
+            return self._root._inputs
+
+    @inputs.setter
+    def inputs(self, value):
+        if self._root is None:
+            self._inputs = value
+        else:
+            self._root._inputs = value
+
+    @property
+    def outputs(self):
+        if self._root is None:
+            return self._outputs
+        else:
+            return self._root._outputs
+
+    @outputs.setter
+    def outputs(self, value):
+        if self._root is None:
+            self._outputs = value
+        else:
+            self._root._outputs = value
 
     def __repr__(self):
         """Pretty print in jupyter notebook"""
@@ -170,6 +217,7 @@ class FUSEDobj(object):
     @property
     def value(self):
         """Get the value from the root flatten dictionary"""
+        self.log_get()
         if self.address in self._flat_dict:
             return self._flat_dict[self.address]
         else:
@@ -180,35 +228,41 @@ class FUSEDobj(object):
     @value.setter
     def value(self, val):
         """Write the value at the write place"""
+        self.log_set()
         if self.address in self._flat_dict:
             self._flat_dict[self.address] = val
         else:
             raise Exception('This is a nested object, use nest() instead')
 
 
+    def update_value(self, val):
+        if isinstance(val, FUSEDobj):
+            self.update_value(val.nest())
+        elif self._type == 'dict':
+            if isinstance(val, dict):
+                for k, v in val.items():
+                    self.k = v
+            else:
+                raise Exception(val,'should be a dict but instead is a', val.__class__.__name__)
+        elif self._type == 'list(dict)':
+            if isinstance(val, list):
+                for i in val:
+                    if isinstance(i, dict):
+                        if 'name' in i:
+                            setattr(self, i['name'], i)
+                        else:
+                            raise Exception(i,'has no `name` key')
+                    else:
+                        raise Exception(val[i], 'should be a dict')
+        else:
+            # write in the value
+            self.value = val
+
     def __setattr__(self, key, val):
         if hasattr(self, key):
             obj = getattr(self, key)
             if isinstance(obj, FUSEDobj):
-                if obj._type == 'dict':
-                    if isinstance(val, dict):
-                        for k, v in val.items():
-                            setattr(obj, k, v)
-                    else:
-                        raise Exception(v,'should be a dict but instead is a', v.__class__.__name__)
-                elif obj._type == 'list(dict)':
-                    if isinstance(val, list):
-                        for i in val:
-                            if isinstance(i, dict):
-                                if 'name' in i:
-                                    setattr(obj, i['name'], i)
-                                else:
-                                    raise Exception(i,'has no `name` key')
-                            else:
-                                raise Exception(val[i], 'should be a dict')
-                else:
-                    # write in the value
-                    obj.value = val
+                obj.update_value(val)
             else: # Normal behavior
                 super(FUSEDobj, self).__setattr__(key, val)
         else: # Normal behavior
@@ -225,8 +279,12 @@ class FUSEDobj(object):
         return ':'.join([self._parent.address, self._name])
 
     def resolves(self, val):
+        """Give all the fused objects satisfying a specific address pattern
+        """
+        #TODO: implement inverse hashkey mapping and regular expression for pattern detection
 #        print val
         address = val.split(':*:')
+        yield self
         if len(address) == 1:
             # There isn't a middle wild card
             keys = val.split(':')
@@ -293,7 +351,7 @@ class FUSEDobj(object):
         for k in self.keys():
             yield k, getattr(self, k)
 
-    ## Operators overloads -----------------------------------------------------
+    ## Operators overload -----------------------------------------------------
 
     def __getitem__(self, a):
         try:
